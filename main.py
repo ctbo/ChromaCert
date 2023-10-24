@@ -49,7 +49,7 @@ class GraphWidget(QWidget):
         node_colors = [
             'red' if node in self.selected_nodes else 'blue' for node in self.G.nodes()
         ]
-        nx.draw(self.G, pos=self.pos, ax=self.ax, with_labels=True, node_color=node_colors)
+        nx.draw(self.G, pos=self.pos, ax=self.ax, with_labels=False, node_color=node_colors, node_size=100)
         self.canvas.draw()
 
     def on_press(self, event):
