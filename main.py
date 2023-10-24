@@ -70,6 +70,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('ChromaCert')
         self.setGeometry(100, 100, 800, 600)
 
+        self.create_menu()
+
         # Set up the scrollable canvas
         self.scrollArea = QScrollArea(self)
         self.setCentralWidget(self.scrollArea)
@@ -92,6 +94,22 @@ class MainWindow(QMainWindow):
         self.addButton.clicked.connect(self.add_row)
         self.layout.addWidget(self.addButton)  # Place button below the last row
 
+    def create_menu(self):
+        menuBar = self.menuBar()
+        actionMenu = menuBar.addMenu('Actions')
+
+        # Add some dummy functions
+        action1 = actionMenu.addAction('Add row')
+        action1.triggered.connect(self.add_row)
+
+        action2 = actionMenu.addAction('Function 2')
+        action2.triggered.connect(self.dummy_function)
+
+        action3 = actionMenu.addAction('Function 3')
+        action3.triggered.connect(self.dummy_function)
+
+    def dummy_function(self):
+        print("Dummy function executed")
 
     def add_row(self):
         hbox = QHBoxLayout()
