@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout,
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QHBoxLayout
 from PyQt5.QtWidgets import QMenu
+from PyQt5.QtCore import QPoint
 
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas
@@ -18,7 +19,7 @@ from matplotlib.backends.backend_qt5agg import (
 
 
 class GraphWidget(QWidget):
-    def __init__(self, graph=None, parent=None):
+    def __init__(self, parent=None, graph=None):
         super().__init__(parent)
         self.setFixedSize(200, 200)  # Set a fixed size for each graph widget
 
@@ -87,7 +88,9 @@ class GraphWidget(QWidget):
     def contextMenuEvent(self, event):
         contextMenu = QMenu(self)
 
-        # Add some dummy actions
+        createNodeAction = contextMenu.addAction("Create Vertex")
+        createNodeAction.triggered.connect(lambda: self.create_node_at_position(event.pos()))
+
         action1 = contextMenu.addAction("Spring Layout")
         action1.triggered.connect(self.option_spring_layout)
 
@@ -105,6 +108,26 @@ class GraphWidget(QWidget):
 
     def option_spring_layout(self):
         self.pos = nx.spring_layout(self.G)
+        self.draw_graph()
+
+    def create_node_at_position(self, position):
+        # Adjust for canvas position within the widget
+        canvas_pos = self.canvas.pos()
+        adjusted_x = position.x()-canvas_pos.x()
+
+        # Adjust the y-coordinate for the discrepancy between coordinate systems
+        adjusted_y = self.canvas.height()-(position.y()-canvas_pos.y())
+
+        # Convert adjusted widget coordinates (in pixels) to data coordinates
+        inv_transform = self.ax.transData.inverted()
+        data_pos = inv_transform.transform((adjusted_x, adjusted_y))
+
+        # Create a new node at the click position
+        new_node = max(self.G.nodes())+1 if self.G.nodes() else 0
+        self.G.add_node(new_node)
+        self.pos[new_node] = data_pos
+
+        # Redraw the graph
         self.draw_graph()
 
 
