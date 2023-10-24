@@ -89,7 +89,12 @@ class GraphWidget(QWidget):
         contextMenu = QMenu(self)
 
         createNodeAction = contextMenu.addAction("Create Vertex")
-        createNodeAction.triggered.connect(lambda: self.create_node_at_position(event.pos()))
+        createNodeAction.triggered.connect(lambda: self.option_create_node(event.pos()))
+
+        toggleEdgeAction = contextMenu.addAction("Toggle Edge")
+        toggleEdgeAction.triggered.connect(self.option_toggle_edge)
+        if len(self.selected_nodes) != 2:
+            toggleEdgeAction.setEnabled(False)
 
         action1 = contextMenu.addAction("Spring Layout")
         action1.triggered.connect(self.option_spring_layout)
@@ -106,11 +111,7 @@ class GraphWidget(QWidget):
     def dummy_option(self):
         print("Selected context menu option")
 
-    def option_spring_layout(self):
-        self.pos = nx.spring_layout(self.G)
-        self.draw_graph()
-
-    def create_node_at_position(self, position):
+    def option_create_node(self, position):
         # Adjust for canvas position within the widget
         canvas_pos = self.canvas.pos()
         adjusted_x = position.x()-canvas_pos.x()
@@ -128,6 +129,19 @@ class GraphWidget(QWidget):
         self.pos[new_node] = data_pos
 
         # Redraw the graph
+        self.draw_graph()
+
+    def option_toggle_edge(self):
+        if len(self.selected_nodes) == 2:
+            u, v = self.selected_nodes
+            if self.G.has_edge(u, v):
+                self.G.remove_edge(u, v)
+            else:
+                self.G.add_edge(u, v)
+            self.draw_graph()  # Redraw the graph to reflect the changes
+
+    def option_spring_layout(self):
+        self.pos = nx.spring_layout(self.G)
         self.draw_graph()
 
 
