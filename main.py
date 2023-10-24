@@ -9,8 +9,8 @@ import numpy as np
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget, QPushButton
 from PyQt5.QtWidgets import QLabel
-from PyQt5.QtWidgets import QGridLayout
 from PyQt5.QtWidgets import QHBoxLayout
+from PyQt5.QtWidgets import QMenu
 
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas
@@ -62,6 +62,28 @@ class GraphWidget(QWidget):
                 self.selected_nodes.add(node)
             self.draw_graph()
 
+    def contextMenuEvent(self, event):
+        contextMenu = QMenu(self)
+
+        # Add some dummy actions
+        action1 = contextMenu.addAction("Spring Layout")
+        action1.triggered.connect(self.option_spring_layout)
+
+        action2 = contextMenu.addAction("Option 2")
+        action2.triggered.connect(self.dummy_option)
+
+        action3 = contextMenu.addAction("Option 3")
+        action3.triggered.connect(self.dummy_option)
+
+        # Show the context menu at the cursor's position
+        contextMenu.exec(event.globalPos())
+
+    def dummy_option(self):
+        print("Selected context menu option")
+
+    def option_spring_layout(self):
+        self.pos = nx.spring_layout(self.G)
+        self.draw_graph()
 
 class MainWindow(QMainWindow):
     def __init__(self):
