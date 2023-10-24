@@ -1,23 +1,67 @@
+# ChromaCert (c) 2023 by Harald Bögeholz
+
 import sys
+import random
+
+import networkx as nx
+import matplotlib.pyplot as plt
+import numpy as np
+
 from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget, QPushButton
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QGridLayout
 from PyQt5.QtWidgets import QHBoxLayout
 
-import random
+from matplotlib.backends.backend_qt5agg import (
+    FigureCanvasQTAgg as FigureCanvas
+)
+
 
 class GraphWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(200, 200)  # Set a fixed size for each graph widget for now
+        self.setFixedSize(200, 200)  # Set a fixed size for each graph widget
 
-        # Add a layout and label to make the widget more visible
+        # Initialize graph and selected nodes set
+        self.G = nx.wheel_graph(8)
+        self.pos = nx.spring_layout(self.G)
+        self.selected_nodes = set()
+
+        # Create a matplotlib figure and canvas
+        self.fig, self.ax = plt.subplots(figsize=(5, 5))
+        self.canvas = FigureCanvas(self.fig)
         layout = QVBoxLayout(self)
-        label = QLabel("Graph Placeholder", self)
-        layout.addWidget(label)
+        layout.addWidget(self.canvas)
 
-        # Set border and background
-        self.setStyleSheet("border: 2px solid black; background-color: lightgray;")
+        # Draw the graph initially
+        self.draw_graph()
+
+        # Connect the canvas click event to our custom function
+        self.canvas.mpl_connect('button_press_event', self.on_click)
+
+    def draw_graph(self):
+        self.ax.clear()
+        node_colors = [
+            'red' if node in self.selected_nodes else 'blue' for node in self.G.nodes()
+        ]
+        nx.draw(self.G, pos=self.pos, ax=self.ax, with_labels=True, node_color=node_colors)
+        self.canvas.draw()
+
+    def on_click(self, event):
+        # Check if a node was clicked
+        data = [self.pos[node] for node in self.G.nodes()]
+        data_x, data_y = zip(*data)
+        distances = np.sqrt((data_x-event.xdata) ** 2+(data_y-event.ydata) ** 2)
+
+        # If a node is close enough to the click, consider it selected
+        if min(distances) < 0.1:  # adjust this threshold if necessary
+            node = np.argmin(distances)
+            if node in self.selected_nodes:
+                self.selected_nodes.remove(node)
+            else:
+                self.selected_nodes.add(node)
+            self.draw_graph()
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -55,7 +99,7 @@ class MainWindow(QMainWindow):
         for _ in range(num_graphs):
             graph_widget = GraphWidget(self.container)
             hbox.addWidget(graph_widget)
-            hbox.addWidget(QLabel("*"*random.randint(1,50)))
+            hbox.addWidget(QLabel(",")) # just to show that we can put text between graphs
 
         hbox.addStretch(1) # push widgets to the left in each row
 
