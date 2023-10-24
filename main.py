@@ -2,6 +2,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget, QPushButton
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QGridLayout
+from PyQt5.QtWidgets import QHBoxLayout
 
 import random
 
@@ -34,26 +35,31 @@ class MainWindow(QMainWindow):
         self.container = QWidget()
         self.scrollArea.setWidget(self.container)
 
-        # Layout for the container
-        self.layout = QGridLayout(self.container)
+        # Primary QVBoxLayout for the container
+        self.layout = QVBoxLayout(self.container)
         self.layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
 
-        # Add a few rows of graph widgets as a starting point
+        # Add a few rows as a starting point
         for _ in range(3):  # Add 3 rows for demonstration
-            self.add_graph_row()
+            self.add_row()
 
-        # Add a button to add more rows of graph widgets (for testing)
-        self.addButton = QPushButton("Add Graph Row", self.container)
-        self.addButton.clicked.connect(self.add_graph_row)
-        self.layout.addWidget(self.addButton, self.layout.rowCount(), 0)  # Place button below the last row
+        # Add a button to add more rows (for testing)
+        self.addButton = QPushButton("Add Row", self.container)
+        self.addButton.clicked.connect(self.add_row)
+        self.layout.addWidget(self.addButton)  # Place button below the last row
 
 
-    def add_graph_row(self):
-        row = self.layout.rowCount()
-        num_graphs = random.randint(1, 5)  # Random number of graphs between 1 and 5
-        for col in range(num_graphs):
+    def add_row(self):
+        hbox = QHBoxLayout()
+        num_graphs = random.randint(1, 3)  # Random number of graphs between 1 and 3 for demonstration
+        for _ in range(num_graphs):
             graph_widget = GraphWidget(self.container)
-            self.layout.addWidget(graph_widget, row, col)
+            hbox.addWidget(graph_widget)
+            hbox.addWidget(QLabel("*"*random.randint(1,50)))
+
+        hbox.addStretch(1) # push widgets to the left in each row
+
+        self.layout.addLayout(hbox)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
