@@ -68,6 +68,8 @@ class GraphApp(QMainWindow):
 
     def function1(self):
         print("Function 1 executed")
+        self.pos = nx.spring_layout(self.G)
+        self.draw_graph()
 
     def function2(self):
         print("Function 2 executed")
