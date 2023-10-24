@@ -26,6 +26,8 @@ class GraphWidget(QWidget):
         self.G = nx.wheel_graph(8)
         self.pos = nx.spring_layout(self.G)
         self.selected_nodes = set()
+        self.dragging = False  # Flag to check if we are dragging a vertex
+        self.dragged_node = None  # Store the node being dragged
 
         # Create a matplotlib figure and canvas
         self.fig, self.ax = plt.subplots(figsize=(5, 5))
@@ -36,8 +38,12 @@ class GraphWidget(QWidget):
         # Draw the graph initially
         self.draw_graph()
 
-        # Connect the canvas click event to our custom function
         self.canvas.mpl_connect('button_press_event', self.on_click)
+
+        self.canvas.mpl_connect('button_press_event', self.on_press)
+        self.canvas.mpl_connect('motion_notify_event', self.on_motion)
+        self.canvas.mpl_connect('button_release_event', self.on_release)
+
 
     def draw_graph(self):
         self.ax.clear()
@@ -62,6 +68,28 @@ class GraphWidget(QWidget):
                 self.selected_nodes.add(node)
             self.draw_graph()
 
+    def on_press(self, event):
+        # Check if a node was clicked
+        data = [self.pos[node] for node in self.G.nodes()]
+        data_x, data_y = zip(*data)
+        distances = np.sqrt((data_x - event.xdata)**2 + (data_y - event.ydata)**2)
+
+        # If a node is close enough to the click, consider it selected
+        if min(distances) < 0.1:  # adjust this threshold if necessary
+            node = np.argmin(distances)
+            self.dragging = True
+            self.dragged_node = node
+
+    def on_motion(self, event):
+        if self.dragging and self.dragged_node is not None:
+            # Update the position of the dragged node
+            self.pos[self.dragged_node] = (event.xdata, event.ydata)
+            self.draw_graph()
+
+    def on_release(self, event):
+        self.dragging = False
+        self.dragged_node = None
+
     def contextMenuEvent(self, event):
         contextMenu = QMenu(self)
 
@@ -85,12 +113,13 @@ class GraphWidget(QWidget):
         self.pos = nx.spring_layout(self.G)
         self.draw_graph()
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle('ChromaCert')
-        self.setGeometry(100, 100, 800, 600)
+        # self.setGeometry(100, 100, 800, 600)
 
         self.create_menu()
 
