@@ -18,12 +18,12 @@ from matplotlib.backends.backend_qt5agg import (
 
 
 class GraphWidget(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, graph=None, parent=None):
         super().__init__(parent)
         self.setFixedSize(200, 200)  # Set a fixed size for each graph widget
 
         # Initialize graph and selected nodes set
-        self.G = nx.wheel_graph(8)
+        self.G = graph if graph is not None else nx.wheel_graph(8)
         self.pos = nx.spring_layout(self.G)
         self.selected_nodes = set()
         self.dragging = False  # Flag to check if we are dragging a vertex
