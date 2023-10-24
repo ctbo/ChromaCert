@@ -28,6 +28,7 @@ class GraphWidget(QWidget):
         self.selected_nodes = set()
         self.dragging = False  # Flag to check if we are dragging a vertex
         self.dragged_node = None  # Store the node being dragged
+        self.drag_occurred = False  # Flag to check if a drag action took place
 
         # Create a matplotlib figure and canvas
         self.fig, self.ax = plt.subplots(figsize=(5, 5))
@@ -37,8 +38,6 @@ class GraphWidget(QWidget):
 
         # Draw the graph initially
         self.draw_graph()
-
-        self.canvas.mpl_connect('button_press_event', self.on_click)
 
         self.canvas.mpl_connect('button_press_event', self.on_press)
         self.canvas.mpl_connect('motion_notify_event', self.on_motion)
@@ -52,21 +51,6 @@ class GraphWidget(QWidget):
         ]
         nx.draw(self.G, pos=self.pos, ax=self.ax, with_labels=True, node_color=node_colors)
         self.canvas.draw()
-
-    def on_click(self, event):
-        # Check if a node was clicked
-        data = [self.pos[node] for node in self.G.nodes()]
-        data_x, data_y = zip(*data)
-        distances = np.sqrt((data_x-event.xdata) ** 2+(data_y-event.ydata) ** 2)
-
-        # If a node is close enough to the click, consider it selected
-        if min(distances) < 0.1:  # adjust this threshold if necessary
-            node = np.argmin(distances)
-            if node in self.selected_nodes:
-                self.selected_nodes.remove(node)
-            else:
-                self.selected_nodes.add(node)
-            self.draw_graph()
 
     def on_press(self, event):
         # Check if a node was clicked
@@ -82,13 +66,23 @@ class GraphWidget(QWidget):
 
     def on_motion(self, event):
         if self.dragging and self.dragged_node is not None:
-            # Update the position of the dragged node
+            self.drag_occurred = True
             self.pos[self.dragged_node] = (event.xdata, event.ydata)
             self.draw_graph()
 
     def on_release(self, event):
+        # If dragging didn't occur, toggle the node's state
+        if not self.drag_occurred and self.dragged_node is not None:
+            if self.dragged_node in self.selected_nodes:
+                self.selected_nodes.remove(self.dragged_node)
+            else:
+                self.selected_nodes.add(self.dragged_node)
+            self.draw_graph()
+
         self.dragging = False
         self.dragged_node = None
+        self.drag_occurred = False  # Reset the drag_occurred flag
+
 
     def contextMenuEvent(self, event):
         contextMenu = QMenu(self)
