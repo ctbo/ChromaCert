@@ -186,7 +186,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle('ChromaCert')
-        # self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 800, 600)
 
         self.create_menu()
 
@@ -205,43 +205,42 @@ class MainWindow(QMainWindow):
         self.layout = QVBoxLayout(self.container)
         self.layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
 
-        # Add a few rows as a starting point
-        for _ in range(3):  # Add 3 rows for demonstration
-            self.add_row()
-
-        # Add a button to add more rows (for testing)
-        self.addButton = QPushButton("Add Row", self.container)
-        self.addButton.clicked.connect(self.add_row)
-        self.layout.addWidget(self.addButton)  # Place button below the last row
-
     def create_menu(self):
         menuBar = self.menuBar()
-        actionMenu = menuBar.addMenu('Actions')
 
-        # Add some dummy functions
-        action1 = actionMenu.addAction('Add row')
-        action1.triggered.connect(self.add_row)
+        new_menu = menuBar.addMenu("New Graph")
+        new_action_empty = new_menu.addAction("Empty")
+        new_action_empty.triggered.connect(lambda: self.add_row(nx.empty_graph(0, create_using=nx.Graph)))
+        new_submenu_complete = new_menu.addMenu("Complete")
+        for i in range(2, 11):
+            new_action_complete = new_submenu_complete.addAction(f"K_{i}")
+            new_action_complete.triggered.connect(lambda checked, i=i: self.add_row(nx.complete_graph(i)))
+        new_submenu_wheel = new_menu.addMenu("Wheel")
+        for i in range(3,11):
+            new_action_wheel = new_submenu_wheel.addAction(f"W_{i}")
+            new_action_wheel.triggered.connect(lambda checked, i=i: self.add_row(nx.wheel_graph(i+1)))
+        new_submenu_bipartite = new_menu.addMenu("Bipartite")
+        for i in range(2,6):
+            for j in range(2, i+1):
+                new_action_bipartite = new_submenu_bipartite.addAction(f"K_{{{i}, {j}}}")
+                new_action_bipartite.triggered.connect(lambda checked, i=i, j=j:
+                                                       self.add_row(nx.complete_multipartite_graph(i, j)))
 
-        action2 = actionMenu.addAction('Function 2')
-        action2.triggered.connect(self.dummy_function)
-
-        action3 = actionMenu.addAction('Function 3')
-        action3.triggered.connect(self.dummy_function)
-
-    def dummy_function(self):
-        print("Dummy function executed")
-
-    def add_row(self):
+    def add_row(self, graph=None):
         row_number = len(self.rows) + 1
         hbox = QHBoxLayout()
         row_label = RowLabel(f"({row_number})", main_window=self)
         hbox.addWidget(row_label)
 
-        num_graphs = random.randint(1, 3)  # Random number of graphs between 1 and 3 for demonstration
-        for _ in range(num_graphs):
-            graph_widget = GraphWidget(self.container)
+        if graph is not None:
+            graph_widget = GraphWidget(self.container, graph=graph)
             hbox.addWidget(graph_widget)
-            hbox.addWidget(QLabel(",")) # just to show that we can put text between graphs
+        else:
+            num_graphs = random.randint(1, 3)  # Random number of graphs between 1 and 3 for demonstration
+            for _ in range(num_graphs):
+                graph_widget = GraphWidget(self.container)
+                hbox.addWidget(graph_widget)
+                hbox.addWidget(QLabel(",")) # just to show that we can put text between graphs
 
         hbox.addStretch(1) # push widgets to the left in each row
 
