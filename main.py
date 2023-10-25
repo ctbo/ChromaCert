@@ -157,6 +157,30 @@ class GraphWidget(QWidget):
         self.draw_graph()
 
 
+class RowLabel(QLabel):
+    def __init__(self, text, main_window=None, *args, **kwargs):
+        super().__init__(text, *args, **kwargs)
+        self.main_window = main_window
+        font = self.font()
+        font.setBold(True)
+        self.setFont(font)
+
+    def contextMenuEvent(self, event):
+        contextMenu = QMenu(self)
+
+        # Sample action
+        sampleAction = contextMenu.addAction("Add Row")
+        sampleAction.triggered.connect(self.on_sample_action)
+
+        # Display the context menu
+        contextMenu.exec(event.globalPos())
+
+    def on_sample_action(self):
+        print("Sample action triggered!")
+        if self.main_window:
+            self.main_window.add_row()
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -210,11 +234,8 @@ class MainWindow(QMainWindow):
     def add_row(self):
         row_number = len(self.rows) + 1
         hbox = QHBoxLayout()
-        numberLabel = QLabel(f"({row_number})")
-        font = numberLabel.font()
-        font.setBold(True)
-        numberLabel.setFont(font)
-        hbox.addWidget(numberLabel)
+        row_label = RowLabel(f"({row_number})", main_window=self)
+        hbox.addWidget(row_label)
 
         num_graphs = random.randint(1, 3)  # Random number of graphs between 1 and 3 for demonstration
         for _ in range(num_graphs):
