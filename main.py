@@ -7,11 +7,10 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget, QPushButton
+from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QHBoxLayout
 from PyQt5.QtWidgets import QMenu
-from PyQt5.QtCore import QPoint
 
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas
@@ -43,7 +42,6 @@ class GraphWidget(QWidget):
         self.canvas.mpl_connect('button_press_event', self.on_press)
         self.canvas.mpl_connect('motion_notify_event', self.on_motion)
         self.canvas.mpl_connect('button_release_event', self.on_release)
-
 
     def draw_graph(self):
         self.ax.clear()
@@ -90,7 +88,6 @@ class GraphWidget(QWidget):
         self.dragged_node = None
         self.drag_occurred = False  # Reset the drag_occurred flag
 
-
     def contextMenuEvent(self, event):
         contextMenu = QMenu(self)
 
@@ -112,9 +109,6 @@ class GraphWidget(QWidget):
 
         # Show the context menu at the cursor's position
         contextMenu.exec(event.globalPos())
-
-    def dummy_option(self):
-        print("Selected context menu option")
 
     def option_create_node(self, position):
         # Adjust for canvas position within the widget
@@ -158,9 +152,10 @@ class GraphWidget(QWidget):
 
 
 class RowLabel(QLabel):
-    def __init__(self, text, main_window=None, *args, **kwargs):
+    def __init__(self, text, main_window=None, row_index=None, *args, **kwargs):
         super().__init__(text, *args, **kwargs)
         self.main_window = main_window
+        self.row_index = row_index
         font = self.font()
         font.setBold(True)
         self.setFont(font)
@@ -176,7 +171,7 @@ class RowLabel(QLabel):
         contextMenu.exec(event.globalPos())
 
     def on_sample_action(self):
-        print("Sample action triggered!")
+        print(f"Sample action triggered! {self.row_index=}")
         if self.main_window:
             self.main_window.add_row()
 
@@ -216,11 +211,11 @@ class MainWindow(QMainWindow):
             new_action_complete = new_submenu_complete.addAction(f"K_{i}")
             new_action_complete.triggered.connect(lambda checked, i=i: self.add_row(nx.complete_graph(i)))
         new_submenu_wheel = new_menu.addMenu("Wheel")
-        for i in range(3,11):
+        for i in range(3, 11):
             new_action_wheel = new_submenu_wheel.addAction(f"W_{i}")
             new_action_wheel.triggered.connect(lambda checked, i=i: self.add_row(nx.wheel_graph(i+1)))
         new_submenu_bipartite = new_menu.addMenu("Bipartite")
-        for i in range(2,6):
+        for i in range(2, 6):
             for j in range(2, i+1):
                 new_action_bipartite = new_submenu_bipartite.addAction(f"K_{{{i}, {j}}}")
                 new_action_bipartite.triggered.connect(lambda checked, i=i, j=j:
@@ -229,7 +224,7 @@ class MainWindow(QMainWindow):
     def add_row(self, graph=None):
         row_number = len(self.rows) + 1
         hbox = QHBoxLayout()
-        row_label = RowLabel(f"({row_number})", main_window=self)
+        row_label = RowLabel(f"({row_number})", main_window=self, row_index=row_number-1)
         hbox.addWidget(row_label)
 
         if graph is not None:
@@ -240,12 +235,13 @@ class MainWindow(QMainWindow):
             for _ in range(num_graphs):
                 graph_widget = GraphWidget(self.container)
                 hbox.addWidget(graph_widget)
-                hbox.addWidget(QLabel(",")) # just to show that we can put text between graphs
+                hbox.addWidget(QLabel(","))  # just to show that we can put text between graphs
 
-        hbox.addStretch(1) # push widgets to the left in each row
+        hbox.addStretch(1)  # push widgets to the left in each row
 
         self.layout.addLayout(hbox)
         self.rows.append(hbox)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
