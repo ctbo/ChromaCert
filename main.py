@@ -54,6 +54,10 @@ class GraphWidget(QWidget):
         self.canvas.draw()
 
     def on_press(self, event):
+        # Ensure that only a left-click initiates a drag
+        if event.button != 1:
+            return
+
         # Check if a node was clicked
         nodes = list(self.G.nodes())
         data = [self.pos[node] for node in nodes]
