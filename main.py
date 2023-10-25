@@ -60,15 +60,16 @@ class GraphWidget(QWidget):
 
         # Check if a node was clicked
         nodes = list(self.G.nodes())
-        data = [self.pos[node] for node in nodes]
-        data_x, data_y = zip(*data)
-        distances = np.sqrt((data_x - event.xdata)**2 + (data_y - event.ydata)**2)
+        if nodes:
+            data = [self.pos[node] for node in nodes]
+            data_x, data_y = zip(*data)
+            distances = np.sqrt((data_x - event.xdata)**2 + (data_y - event.ydata)**2)
 
-        # If a node is close enough to the click, consider it selected
-        if min(distances) < 0.1:  # adjust this threshold if necessary
-            i = np.argmin(distances)
-            self.dragging = True
-            self.dragged_node = nodes[i]
+            # If a node is close enough to the click, consider it selected
+            if min(distances) < 0.1:  # adjust this threshold if necessary
+                i = np.argmin(distances)
+                self.dragging = True
+                self.dragged_node = nodes[i]
 
     def on_motion(self, event):
         if self.dragging and self.dragged_node is not None:
