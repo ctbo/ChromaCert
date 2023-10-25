@@ -55,15 +55,16 @@ class GraphWidget(QWidget):
 
     def on_press(self, event):
         # Check if a node was clicked
-        data = [self.pos[node] for node in self.G.nodes()]
+        nodes = list(self.G.nodes())
+        data = [self.pos[node] for node in nodes]
         data_x, data_y = zip(*data)
         distances = np.sqrt((data_x - event.xdata)**2 + (data_y - event.ydata)**2)
 
         # If a node is close enough to the click, consider it selected
         if min(distances) < 0.1:  # adjust this threshold if necessary
-            node = np.argmin(distances)
+            i = np.argmin(distances)
             self.dragging = True
-            self.dragged_node = node
+            self.dragged_node = nodes[i]
 
     def on_motion(self, event):
         if self.dragging and self.dragged_node is not None:
@@ -96,14 +97,13 @@ class GraphWidget(QWidget):
         if len(self.selected_nodes) != 2:
             toggleEdgeAction.setEnabled(False)
 
-        action1 = contextMenu.addAction("Spring Layout")
-        action1.triggered.connect(self.option_spring_layout)
+        deleteNodesAction = contextMenu.addAction("Delete Vertices")
+        deleteNodesAction.triggered.connect(self.option_delete_nodes)
+        if not self.selected_nodes:
+            deleteNodesAction.setEnabled(False)
 
-        action2 = contextMenu.addAction("Option 2")
-        action2.triggered.connect(self.dummy_option)
-
-        action3 = contextMenu.addAction("Option 3")
-        action3.triggered.connect(self.dummy_option)
+        springLayoutAction = contextMenu.addAction("Spring Layout")
+        springLayoutAction.triggered.connect(self.option_spring_layout)
 
         # Show the context menu at the cursor's position
         contextMenu.exec(event.globalPos())
@@ -139,6 +139,13 @@ class GraphWidget(QWidget):
             else:
                 self.G.add_edge(u, v)
             self.draw_graph()  # Redraw the graph to reflect the changes
+
+    def option_delete_nodes(self):
+        for node in self.selected_nodes:
+            self.G.remove_node(node)
+            del self.pos[node]
+        self.selected_nodes = set()
+        self.draw_graph()
 
     def option_spring_layout(self):
         self.pos = nx.spring_layout(self.G)
