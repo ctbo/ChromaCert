@@ -166,6 +166,8 @@ class MainWindow(QMainWindow):
 
         self.create_menu()
 
+        self.rows = []
+
         # Set up the scrollable canvas
         self.scrollArea = QScrollArea(self)
         self.setCentralWidget(self.scrollArea)
@@ -206,7 +208,14 @@ class MainWindow(QMainWindow):
         print("Dummy function executed")
 
     def add_row(self):
+        row_number = len(self.rows) + 1
         hbox = QHBoxLayout()
+        numberLabel = QLabel(f"({row_number})")
+        font = numberLabel.font()
+        font.setBold(True)
+        numberLabel.setFont(font)
+        hbox.addWidget(numberLabel)
+
         num_graphs = random.randint(1, 3)  # Random number of graphs between 1 and 3 for demonstration
         for _ in range(num_graphs):
             graph_widget = GraphWidget(self.container)
@@ -216,6 +225,7 @@ class MainWindow(QMainWindow):
         hbox.addStretch(1) # push widgets to the left in each row
 
         self.layout.addLayout(hbox)
+        self.rows.append(hbox)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
