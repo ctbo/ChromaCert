@@ -17,14 +17,124 @@ from matplotlib.backends.backend_qt5agg import (
 )
 
 
+class RowLabel(QLabel):
+    def __init__(self, text, main_window=None, row_index=None, *args, **kwargs):
+        super().__init__(text, *args, **kwargs)
+        self.main_window = main_window
+        self.row_index = row_index
+        font = self.font()
+        font.setBold(True)
+        self.setFont(font)
+
+    def contextMenuEvent(self, event):
+        contextMenu = QMenu(self)
+
+        # Sample action
+        sampleAction = contextMenu.addAction("Add Row")
+        sampleAction.triggered.connect(self.on_sample_action)
+
+        # Display the context menu
+        contextMenu.exec(event.globalPos())
+
+    def on_sample_action(self):
+        print(f"Sample action triggered! {self.row_index=}")
+        if self.main_window:
+            self.main_window.add_row()
+
+
+class GraphWithPos:
+    def __init__(self, graph, pos=None):
+        self.G = graph
+        if pos is None:
+            self.pos = nx.spring_layout(self.G)
+        else:
+            self.pos = pos
+
+
+class GraphExpression:
+    SUM = 1    # this encodes the type and the precedence level
+    PROD = 2
+
+    def __init__(self, graph_w_pos=None, op=SUM):
+        self.op = op
+        if graph_w_pos is None:
+            self.items = []
+        else:
+            assert isinstance(graph_w_pos, GraphWithPos)
+            self.items = [(graph_w_pos, 1)]
+
+    def insert(self, graph_expr, multiplicity_delta):
+        for i in range(len(self.items)):
+            item, multiplicity = self.items[i]
+            if isinstance(item, GraphWithPos) and isinstance(graph_expr, GraphWithPos) and \
+                    nx.is_isomorphic(item.G, graph_expr.G):
+                if multiplicity + multiplicity_delta == 0:
+                    del self.items[i]
+                else:
+                    self.items[i] = (item, multiplicity+multiplicity_delta)
+                return
+        if multiplicity_delta != 0:
+            self.items.append((graph_expr, multiplicity_delta))
+
+    def create_widgets(self, index_tuple=()):
+        if not self.items:
+            return [QLabel(f"EMPTY {'SUM' if self.op == self.SUM else 'PROD'}")]
+        widgets = []
+        first = True
+        for i in range(len(self.items)):
+            item, multiplicity = self.items[i]
+
+            if self.op == self.SUM:
+                if multiplicity == 1:
+                    if not first:
+                        widgets.append(QLabel("+"))
+                elif multiplicity == -1:
+                    widgets.append(QLabel("–"))
+                else:
+                    widgets.append(QLabel(f"{multiplicity}" if first else f"{multiplicity:+}"))
+
+            if isinstance(item, GraphWithPos):
+                widgets.append(GraphWidget(graph_with_pos=item))
+            else:
+                assert isinstance(item, GraphExpression)
+                if item.op < self.op:
+                    widgets.append(QLabel("("))
+                widgets += item.create_widgets(index_tuple + (i,))
+                if item.op < self.op:
+                    widgets.append(QLabel(")"))
+
+            if self.op == self.PROD and multiplicity != 1:
+                widgets.append(QLabel(f"^{multiplicity}"))
+            first = False
+        return widgets
+
+
+class Row:
+    def init(self, main_window, row_index, parent_row, graph_expr):
+        self.main_window = main_window
+        self.row_index = row_index
+        self.parent_row = parent_row
+        self.graph_expr = graph_expr
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        hbox = QHBoxLayout()
+        row_label = RowLabel(f"({self.row_index+1})", main_window=self.main_window, row_index=self.row_index)
+        hbox.addWidget(row_label)
+
+        hbox.addStretch(1)  # push widgets to the left in each row
+
+
 class GraphWidget(QWidget):
-    def __init__(self, parent=None, graph=None):
-        super().__init__(parent)
+    def __init__(self, graph_with_pos=None):
+        super().__init__()
         self.setFixedSize(200, 200)  # Set a fixed size for each graph widget
 
-        # Initialize graph and selected nodes set
-        self.G = graph if graph is not None else nx.wheel_graph(8)
-        self.pos = nx.spring_layout(self.G)
+        if graph_with_pos is None:
+            self.graph_with_pos = GraphWithPos(nx.empty_graph(0, create_using=nx.Graph))
+        else:
+            self.graph_with_pos = graph_with_pos
         self.selected_nodes = set()
         self.dragging = False  # Flag to check if we are dragging a vertex
         self.dragged_node = None  # Store the node being dragged
@@ -46,9 +156,10 @@ class GraphWidget(QWidget):
     def draw_graph(self):
         self.ax.clear()
         node_colors = [
-            'red' if node in self.selected_nodes else 'blue' for node in self.G.nodes()
+            'red' if node in self.selected_nodes else 'blue' for node in self.graph_with_pos.G.nodes()
         ]
-        nx.draw(self.G, pos=self.pos, ax=self.ax, with_labels=False, node_color=node_colors, node_size=100)
+        nx.draw(self.graph_with_pos.G, pos=self.graph_with_pos.pos,
+                ax=self.ax, with_labels=False, node_color=node_colors, node_size=100)
         self.canvas.draw()
 
     def on_press(self, event):
@@ -57,9 +168,9 @@ class GraphWidget(QWidget):
             return
 
         # Check if a node was clicked
-        nodes = list(self.G.nodes())
+        nodes = list(self.graph_with_pos.G.nodes())
         if nodes:
-            data = [self.pos[node] for node in nodes]
+            data = [self.graph_with_pos.pos[node] for node in nodes]
             data_x, data_y = zip(*data)
             distances = np.sqrt((data_x - event.xdata)**2 + (data_y - event.ydata)**2)
 
@@ -72,7 +183,7 @@ class GraphWidget(QWidget):
     def on_motion(self, event):
         if self.dragging and self.dragged_node is not None:
             self.drag_occurred = True
-            self.pos[self.dragged_node] = (event.xdata, event.ydata)
+            self.graph_with_pos.pos[self.dragged_node] = (event.xdata, event.ydata)
             self.draw_graph()
 
     def on_release(self, event):
@@ -147,33 +258,8 @@ class GraphWidget(QWidget):
         self.draw_graph()
 
     def option_spring_layout(self):
-        self.pos = nx.spring_layout(self.G)
+        self.graph_with_pos.pos = nx.spring_layout(self.graph_with_pos.G)
         self.draw_graph()
-
-
-class RowLabel(QLabel):
-    def __init__(self, text, main_window=None, row_index=None, *args, **kwargs):
-        super().__init__(text, *args, **kwargs)
-        self.main_window = main_window
-        self.row_index = row_index
-        font = self.font()
-        font.setBold(True)
-        self.setFont(font)
-
-    def contextMenuEvent(self, event):
-        contextMenu = QMenu(self)
-
-        # Sample action
-        sampleAction = contextMenu.addAction("Add Row")
-        sampleAction.triggered.connect(self.on_sample_action)
-
-        # Display the context menu
-        contextMenu.exec(event.globalPos())
-
-    def on_sample_action(self):
-        print(f"Sample action triggered! {self.row_index=}")
-        if self.main_window:
-            self.main_window.add_row()
 
 
 class MainWindow(QMainWindow):
@@ -228,20 +314,26 @@ class MainWindow(QMainWindow):
         hbox.addWidget(row_label)
 
         if graph is not None:
-            graph_widget = GraphWidget(self.container, graph=graph)
+            graph_widget = GraphWidget(graph_with_pos=GraphWithPos(graph))
             hbox.addWidget(graph_widget)
-        else:
-            num_graphs = random.randint(1, 3)  # Random number of graphs between 1 and 3 for demonstration
-            for _ in range(num_graphs):
-                graph_widget = GraphWidget(self.container)
-                hbox.addWidget(graph_widget)
-                hbox.addWidget(QLabel(","))  # just to show that we can put text between graphs
 
         hbox.addStretch(1)  # push widgets to the left in each row
 
         self.layout.addLayout(hbox)
         self.rows.append(hbox)
 
+app = QApplication(sys.argv)
+test = GraphExpression(GraphWithPos(nx.wheel_graph(7)), op=GraphExpression.PROD)
+test.insert(GraphWithPos(nx.wheel_graph(6)), 1)
+test2 = GraphExpression(GraphWithPos(nx.wheel_graph(7)), op=GraphExpression.SUM)
+test2.insert(GraphWithPos(nx.wheel_graph(6)), 1)
+
+test.insert(test2, 1)
+print(test.items)
+widgets = test.create_widgets()
+print([widget.text() if isinstance(widget, QLabel) else widget for widget in widgets])
+
+sys.exit(0)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
