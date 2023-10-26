@@ -268,9 +268,18 @@ class Row:
             sub_expr.items[i] = (graph_w_pos, multiplicity)
             for j in iso_indices[::-1]:
                 del sub_expr.items[j]
-            new_row = Row(self.main_window, self, "merge", new_graph_expr)
+            new_row = Row(self.main_window, self, "collect", new_graph_expr)
             self.reference_count += 1
             self.main_window.add_row(new_row)
+
+            for j in range(self.layout.count()):
+                item = self.layout.itemAt(j)
+                widget = item.widget()
+                if widget and isinstance(widget, GraphWidget):
+                    if widget.index_tuple == index_tuple:
+                        widget.select_all()
+                    else:
+                        widget.deselect_all()
 
 
 class GraphWidget(QWidget):
@@ -301,6 +310,16 @@ class GraphWidget(QWidget):
         self.canvas.mpl_connect('button_press_event', self.on_press)
         self.canvas.mpl_connect('motion_notify_event', self.on_motion)
         self.canvas.mpl_connect('button_release_event', self.on_release)
+
+    def select_all(self):
+        if len(self.selected_nodes) != self.graph_with_pos.G.number_of_nodes():
+            self.selected_nodes = set(self.graph_with_pos.G.nodes)
+            self.draw_graph()
+
+    def deselect_all(self):
+        if self.selected_nodes:
+            self.selected_nodes = set()
+            self.draw_graph()
 
     def draw_graph(self):
         self.ax.clear()
@@ -369,7 +388,7 @@ class GraphWidget(QWidget):
         spring_layout_action = context_menu.addAction("Spring Layout")
         spring_layout_action.triggered.connect(self.option_spring_layout)
 
-        merge_isomorphic_action = context_menu.addAction("Merge Isomorphic")
+        merge_isomorphic_action = context_menu.addAction("Collect Isomorphic")
         merge_isomorphic_action.triggered.connect(self.option_merge_isomorphic)
 
         test_action = context_menu.addAction("Test")
