@@ -196,7 +196,7 @@ class GraphWidget(QWidget):
                 self.dragged_node = nodes[i]
 
     def on_motion(self, event):
-        if self.dragging and self.dragged_node is not None:
+        if self.dragging and self.dragged_node is not None and event.xdata is not None and event.ydata is not None:
             self.drag_occurred = True
             self.graph_with_pos.pos[self.dragged_node] = (event.xdata, event.ydata)
             self.draw_graph()
