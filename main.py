@@ -117,15 +117,15 @@ class GraphExpression:
             first = False
         return widgets
 
-    def indexTupleLens(self, index_tuple):
+    def index_tuple_lens(self, index_tuple):
         if len(index_tuple) == 1:
             return self, index_tuple[0]
         else:
             sub_expr, _ = self.items[index_tuple[0]]
-            return sub_expr.indexTupleLens(index_tuple[1:])
+            return sub_expr.index_tuple_lens(index_tuple[1:])
 
-    def atIndexTuple(self, index_tuple):
-        expr, i = self.indexTupleLens(index_tuple)
+    def at_index_tuple(self, index_tuple):
+        expr, i = self.index_tuple_lens(index_tuple)
         return expr.items[i]
 
 
@@ -181,7 +181,7 @@ class Row:
             index_tuple, selected_nodes = sel[0]
             if len(selected_nodes) == 2:
                 u, v = selected_nodes
-                graph_with_pos, multiplicity = self.graph_expr.atIndexTuple(index_tuple)
+                graph_with_pos, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
                 if not graph_with_pos.G.has_edge(u, v):
                     return True
         return False
@@ -193,12 +193,12 @@ class Row:
         assert len(selected_nodes) == 2
         u, v = selected_nodes
         new_graph_expr = deepcopy(self.graph_expr)
-        sub_expr, i = new_graph_expr.indexTupleLens(index_tuple)
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
         if sub_expr.op != GraphExpression.SUM:
             graph_w_pos, multiplicity = sub_expr.items[i]
             sum_expr = GraphExpression(graph_w_pos, op=GraphExpression.SUM)
             sub_expr.items[i] = sum_expr, multiplicity
-            sub_expr, i = sum_expr.indexTupleLens((0,))
+            sub_expr, i = sum_expr.index_tuple_lens((0,))
         assert sub_expr.op == GraphExpression.SUM
         graph_w_pos, multiplicity = sub_expr.items[i]
         contracted_graph = GraphWithPos(nx.contracted_nodes(graph_w_pos.G, u, v, self_loops=False))
