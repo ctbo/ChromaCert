@@ -35,7 +35,7 @@ class RowLabel(QLabel):
         context_menu.exec(event.globalPos())
 
     def on_test_action(self):
-        print(f"Test action triggered! {self.row.selected_vertices()}")
+        print(self.row.graph_expr.to_latex_raw())
 
 
 class GraphWithPos:
@@ -52,6 +52,17 @@ class GraphWithPos:
 
     def deselect_all(self):
         self.selected_nodes = set()
+
+    def to_latex_raw(self):
+        node_options = {}
+        node_labels = {}
+        for node in self.G.nodes:
+            node_options[node] = "selected" if node in self.selected_nodes else "unselected"
+            node_labels[node] = ""
+        return nx.to_latex_raw(self.G, pos=deepcopy(self.pos), node_options=node_options,
+            node_label=node_labels,
+            tikz_options="show background rectangle,scale=0.8, baseline={([yshift=-0.5ex]current bounding box.center)}")
+        # TODO report bug in NetworkX. deepcopy() shouldn't be necessary, positions shouldn't be converted to strings
 
 
 class GraphExpression:
@@ -130,6 +141,51 @@ class GraphExpression:
     def deselect_all(self):
         for expr, _ in self.items:
             expr.deselect_all()
+
+    def to_latex_raw(self):
+        result = ""
+        if self.op == self.SUM:
+            first = True
+            for expr, multiplicity in self.items:
+                if multiplicity == 1:
+                    if not first:
+                        result += "+"
+                elif multiplicity == -1:
+                    result += "-"
+                else:
+                    result += f"{multiplicity}" if first else f"{multiplicity:+}"
+                result += expr.to_latex_raw()
+                first = False
+        else:
+            assert self.op == self.PROD
+
+            def latex_helper(terms):
+                result = ""
+                for term, multiplicity in terms:
+                    if isinstance(term, GraphExpression) and term.op < self.op:
+                        result += r"\left("
+                    result += term.to_latex_raw()
+                    if isinstance(term, GraphExpression) and term.op < self.op:
+                        result += r"\right)"
+                    if multiplicity != 1:
+                        result += f"^{{{multiplicity}}}"
+                return result
+
+            numerator = []
+            denominator = []
+            for expr, multiplicity in self.items:
+                if multiplicity > 0:
+                    numerator.append((expr, multiplicity))
+                elif multiplicity < 0:
+                    denominator.append((expr, -multiplicity))
+            if not numerator:
+                result = f"\frac{{1}}{{{latex_helper(denominator)}}}"
+            elif not denominator:
+                result = latex_helper(numerator)
+            else:
+                result = f"\frac{{{latex_helper(numerator)}}}{{{latex_helper(denominator)}"
+
+        return result
 
 
 class Row:
@@ -362,6 +418,7 @@ class GraphWidget(QWidget):
         nodes = list(self.graph_with_pos.G.nodes())
         if nodes:
             data = [self.graph_with_pos.pos[node] for node in nodes]
+            print(data)
             data_x, data_y = zip(*data)
             distances = np.sqrt((data_x - event.xdata)**2 + (data_y - event.ydata)**2)
 
