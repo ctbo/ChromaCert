@@ -35,7 +35,7 @@ class RowLabel(QLabel):
         context_menu.exec(event.globalPos())
 
     def on_test_action(self):
-        print(self.row.graph_expr.to_latex_raw())
+        print(self.row.derivation_to_latex_raw())
 
 
 class GraphWithPos:
@@ -363,6 +363,18 @@ class Row:
         self.main_window.add_row(new_row)
         self.select_single_graph(index_tuple)
 
+    def derivation_to_latex_raw(self, is_final=True):
+        result = ""
+        if not self.parent_row:
+            result = r"\[\begin{array}{r@{\quad}c@{\quad}l}" + "\n"
+            result += self.graph_expr.to_latex_raw() + "\n"
+        else:
+            result = self.parent_row.derivation_to_latex_raw(is_final=False)
+            result += f"& \\stackrel{{\\text{{{self.explanation}}}}}{{=}} &\n {self.graph_expr.to_latex_raw()} \\\\\n"
+        if is_final:
+            result += "\\end{array}\n\\]\n"
+        return result
+
 
 class GraphWidget(QWidget):
     def __init__(self, graph_with_pos=None, row=None, index_tuple=None):
@@ -418,7 +430,6 @@ class GraphWidget(QWidget):
         nodes = list(self.graph_with_pos.G.nodes())
         if nodes:
             data = [self.graph_with_pos.pos[node] for node in nodes]
-            print(data)
             data_x, data_y = zip(*data)
             distances = np.sqrt((data_x - event.xdata)**2 + (data_y - event.ydata)**2)
 
