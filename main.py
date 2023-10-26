@@ -417,10 +417,12 @@ class GraphWidget(QWidget):
 
         merge_isomorphic_action = context_menu.addAction("Collect Isomorphic")
         merge_isomorphic_action.triggered.connect(self.option_merge_isomorphic)
+        if not self.row.selecting_allowed():
+            merge_isomorphic_action.setEnabled(False)
 
         separate_action = context_menu.addAction("Separate Term")
         separate_action.triggered.connect(self.option_separate)
-        if not self.row.can_separate(self.index_tuple):
+        if not self.row.can_separate(self.index_tuple) or not self.row.selecting_allowed():
             separate_action.setEnabled(False)
 
         test_action = context_menu.addAction("Test")
