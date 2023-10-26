@@ -63,16 +63,17 @@ class GraphExpression:
             assert isinstance(graph_w_pos, GraphWithPos)
             self.items = [(graph_w_pos, 1)]
 
-    def insert(self, graph_expr, multiplicity_delta):
-        for i in range(len(self.items)):
-            item, multiplicity = self.items[i]
-            if isinstance(item, GraphWithPos) and isinstance(graph_expr, GraphWithPos) and \
-                    nx.is_isomorphic(item.G, graph_expr.G):
-                if multiplicity + multiplicity_delta == 0:
-                    del self.items[i]
-                else:
-                    self.items[i] = (item, multiplicity+multiplicity_delta)
-                return
+    def insert(self, graph_expr, multiplicity_delta, at_index=None):
+        if at_index is None:
+            for i in range(len(self.items)):
+                item, multiplicity = self.items[i]
+                if isinstance(item, GraphWithPos) and isinstance(graph_expr, GraphWithPos) and \
+                        nx.is_isomorphic(item.G, graph_expr.G):
+                    if multiplicity + multiplicity_delta == 0:
+                        del self.items[i]
+                    else:
+                        self.items[i] = (item, multiplicity+multiplicity_delta)
+                    return
         if multiplicity_delta != 0:
             self.items.append((graph_expr, multiplicity_delta))
 
@@ -234,9 +235,9 @@ class GraphWidget(QWidget):
         data_pos = inv_transform.transform((adjusted_x, adjusted_y))
 
         # Create a new node at the click position
-        new_node = max(self.G.nodes())+1 if self.G.nodes() else 0
-        self.G.add_node(new_node)
-        self.pos[new_node] = data_pos
+        new_node = max(self.graph_with_pos.G.nodes())+1 if self.graph_with_pos.G.nodes() else 0
+        self.graph_with_pos.G.add_node(new_node)
+        self.graph_with_pos.pos[new_node] = data_pos
 
         # Redraw the graph
         self.draw_graph()
@@ -244,16 +245,16 @@ class GraphWidget(QWidget):
     def option_toggle_edge(self):
         if len(self.selected_nodes) == 2:
             u, v = self.selected_nodes
-            if self.G.has_edge(u, v):
-                self.G.remove_edge(u, v)
+            if self.graph_with_pos.G.has_edge(u, v):
+                self.graph_with_pos.G.remove_edge(u, v)
             else:
-                self.G.add_edge(u, v)
+                self.graph_with_pos.G.add_edge(u, v)
             self.draw_graph()  # Redraw the graph to reflect the changes
 
     def option_delete_nodes(self):
         for node in self.selected_nodes:
-            self.G.remove_node(node)
-            del self.pos[node]
+            self.graph_with_pos.G.remove_node(node)
+            del self.graph_with_pos.pos[node]
         self.selected_nodes = set()
         self.draw_graph()
 
@@ -322,18 +323,18 @@ class MainWindow(QMainWindow):
         self.layout.addLayout(hbox)
         self.rows.append(hbox)
 
-app = QApplication(sys.argv)
-test = GraphExpression(GraphWithPos(nx.wheel_graph(7)), op=GraphExpression.PROD)
-test.insert(GraphWithPos(nx.wheel_graph(6)), 1)
-test2 = GraphExpression(GraphWithPos(nx.wheel_graph(7)), op=GraphExpression.SUM)
-test2.insert(GraphWithPos(nx.wheel_graph(6)), 1)
-
-test.insert(test2, 1)
-print(test.items)
-widgets = test.create_widgets()
-print([widget.text() if isinstance(widget, QLabel) else widget for widget in widgets])
-
-sys.exit(0)
+# app = QApplication(sys.argv)
+# test = GraphExpression(GraphWithPos(nx.wheel_graph(7)), op=GraphExpression.PROD)
+# test.insert(GraphWithPos(nx.wheel_graph(6)), 1)
+# test2 = GraphExpression(GraphWithPos(nx.wheel_graph(7)), op=GraphExpression.SUM)
+# test2.insert(GraphWithPos(nx.wheel_graph(6)), 1)
+#
+# test.insert(test2, 1)
+# print(test.items)
+# widgets = test.create_widgets()
+# print([widget.text() if isinstance(widget, QLabel) else widget for widget in widgets])
+#
+# sys.exit(0)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
