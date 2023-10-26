@@ -28,16 +28,6 @@ class RowLabel(QLabel):
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
 
-        ai_action = context_menu.addAction("Addition-Identification")
-        ai_action.triggered.connect(self.on_ai)
-        if not self.row.can_add_identify():
-            ai_action.setEnabled(False)
-
-        dc_action = context_menu.addAction("Deletion-Contraction")
-        dc_action.triggered.connect(self.on_dc)
-        if not self.row.can_delete_contract():
-            dc_action.setEnabled(False)
-
         test_action = context_menu.addAction("Test")
         test_action.triggered.connect(self.on_test_action)
 
@@ -46,12 +36,6 @@ class RowLabel(QLabel):
 
     def on_test_action(self):
         print(f"Test action triggered! {self.row.selected_vertices()}")
-
-    def on_ai(self):
-        self.row.do_add_identify()
-
-    def on_dc(self):
-        self.row.do_delete_contract()
 
 
 class GraphWithPos:
@@ -415,6 +399,18 @@ class GraphWidget(QWidget):
         spring_layout_action = context_menu.addAction("Spring Layout")
         spring_layout_action.triggered.connect(self.option_spring_layout)
 
+        context_menu.addSeparator()
+
+        ai_action = context_menu.addAction("Addition-Identification")
+        ai_action.triggered.connect(self.option_ai)
+        if not self.row.can_add_identify():
+            ai_action.setEnabled(False)
+
+        dc_action = context_menu.addAction("Deletion-Contraction")
+        dc_action.triggered.connect(self.option_dc)
+        if not self.row.can_delete_contract():
+            dc_action.setEnabled(False)
+
         merge_isomorphic_action = context_menu.addAction("Collect Isomorphic")
         merge_isomorphic_action.triggered.connect(self.option_merge_isomorphic)
         if not self.row.selecting_allowed():
@@ -470,6 +466,12 @@ class GraphWidget(QWidget):
     def option_spring_layout(self):
         self.graph_with_pos.pos = nx.spring_layout(self.graph_with_pos.G)
         self.draw_graph()
+
+    def option_ai(self):
+        self.row.do_add_identify()
+
+    def option_dc(self):
+        self.row.do_delete_contract()
 
     def option_merge_isomorphic(self):
         self.row.merge_isomorphic(self.index_tuple)
