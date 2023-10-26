@@ -33,6 +33,11 @@ class RowLabel(QLabel):
         if not self.row.can_add_identify():
             ai_action.setEnabled(False)
 
+        dc_action = context_menu.addAction("Deletion-Contraction")
+        dc_action.triggered.connect(self.on_dc)
+        if not self.row.can_delete_contract():
+            dc_action.setEnabled(False)
+
         test_action = context_menu.addAction("Test")
         test_action.triggered.connect(self.on_test_action)
 
@@ -45,6 +50,8 @@ class RowLabel(QLabel):
     def on_ai(self):
         self.row.do_add_identify()
 
+    def on_dc(self):
+        self.row.do_delete_contract()
 
 class GraphWithPos:
     def __init__(self, graph, pos=None):
@@ -209,6 +216,40 @@ class Row:
         sub_expr.insert(contracted_graph, multiplicity, at_index=i+1)
 
         new_row = Row(self.main_window, self, "AI", new_graph_expr)
+        self.reference_count += 1
+        self.main_window.add_row(new_row)
+
+    def can_delete_contract(self):
+        sel = self.selected_vertices()
+        if len(sel) == 1:
+            index_tuple, selected_nodes = sel[0]
+            if len(selected_nodes) == 2:
+                u, v = selected_nodes
+                graph_with_pos, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
+                if graph_with_pos.G.has_edge(u, v):
+                    return True
+        return False
+
+    def do_delete_contract(self):
+        sel = self.selected_vertices()
+        assert len(sel) == 1
+        index_tuple, selected_nodes = sel[0]
+        assert len(selected_nodes) == 2
+        u, v = selected_nodes
+        new_graph_expr = deepcopy(self.graph_expr)
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
+        if sub_expr.op != GraphExpression.SUM:
+            graph_w_pos, multiplicity = sub_expr.items[i]
+            sum_expr = GraphExpression(graph_w_pos, op=GraphExpression.SUM)
+            sub_expr.items[i] = sum_expr, multiplicity
+            sub_expr, i = sum_expr.index_tuple_lens((0,))
+        assert sub_expr.op == GraphExpression.SUM
+        graph_w_pos, multiplicity = sub_expr.items[i]
+        contracted_graph = GraphWithPos(nx.contracted_nodes(graph_w_pos.G, u, v, self_loops=False))
+        graph_w_pos.G.remove_edge(u, v)
+        sub_expr.insert(contracted_graph, -multiplicity, at_index=i+1)
+
+        new_row = Row(self.main_window, self, "DC", new_graph_expr)
         self.reference_count += 1
         self.main_window.add_row(new_row)
 
