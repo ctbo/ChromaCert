@@ -1,6 +1,7 @@
 # ChromaCert (c) 2023 by Harald Bögeholz
 
 import sys
+from copy import deepcopy
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -27,15 +28,22 @@ class RowLabel(QLabel):
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
 
-        # Sample action
-        sample_action = context_menu.addAction("Add Row")
-        sample_action.triggered.connect(self.on_sample_action)
+        ai_action = context_menu.addAction("Addition-Identification")
+        ai_action.triggered.connect(self.on_ai)
+        if not self.row.can_add_identify():
+            ai_action.setEnabled(False)
+
+        test_action = context_menu.addAction("Test")
+        test_action.triggered.connect(self.on_test_action)
 
         # Display the context menu
         context_menu.exec(event.globalPos())
 
-    def on_sample_action(self):
-        print(f"Sample action triggered! {self.row.row_index + 1}")
+    def on_test_action(self):
+        print(f"Test action triggered! {self.row.selected_vertices()}")
+
+    def on_ai(self):
+        self.row.do_add_identify()
 
 
 class GraphWithPos:
@@ -109,11 +117,22 @@ class GraphExpression:
             first = False
         return widgets
 
+    def indexTupleLens(self, index_tuple):
+        if len(index_tuple) == 1:
+            return self, index_tuple[0]
+        else:
+            sub_expr, _ = self.items[index_tuple[0]]
+            return sub_expr.indexTupleLens(index_tuple[1:])
+
+    def atIndexTuple(self, index_tuple):
+        expr, i = self.indexTupleLens(index_tuple)
+        return expr.items[i]
+
 
 class Row:
-    def __init__(self, main_window, row_index, parent_row, explanation, graph_expr: GraphExpression):
+    def __init__(self, main_window, parent_row, explanation, graph_expr: GraphExpression):
         self.main_window = main_window
-        self.row_index = row_index
+        self.row_index = -1
         self.parent_row = parent_row
         self.explanation = explanation
         self.graph_expr = graph_expr
@@ -130,6 +149,10 @@ class Row:
 
         self.layout.addStretch(1)  # push widgets to the left in each row
 
+    def set_row_index(self, row_index):
+        self.row_index = row_index
+        self.format_row_label()
+
     def format_row_label(self):
         label_text = f"({self.row_index+1})"
         if self.parent_row:
@@ -140,6 +163,51 @@ class Row:
 
     def editing_allowed(self):
         return self.reference_count == 0
+
+    def selected_vertices(self):
+        """ return list of tuples (index_tuple, selected_nodes) for all graphs with selected vertices """
+        result = []
+        for i in range(self.layout.count()):
+            item = self.layout.itemAt(i)
+            widget = item.widget()
+            if widget and isinstance(widget, GraphWidget):
+                if widget.selected_nodes:
+                    result.append((widget.index_tuple, widget.selected_nodes))
+        return result
+
+    def can_add_identify(self):
+        sel = self.selected_vertices()
+        if len(sel) == 1:
+            index_tuple, selected_nodes = sel[0]
+            if len(selected_nodes) == 2:
+                u, v = selected_nodes
+                graph_with_pos, multiplicity = self.graph_expr.atIndexTuple(index_tuple)
+                if not graph_with_pos.G.has_edge(u, v):
+                    return True
+        return False
+
+    def do_add_identify(self):
+        sel = self.selected_vertices()
+        assert len(sel) == 1
+        index_tuple, selected_nodes = sel[0]
+        assert len(selected_nodes) == 2
+        u, v = selected_nodes
+        new_graph_expr = deepcopy(self.graph_expr)
+        sub_expr, i = new_graph_expr.indexTupleLens(index_tuple)
+        if sub_expr.op != GraphExpression.SUM:
+            graph_w_pos, multiplicity = sub_expr.items[i]
+            sum_expr = GraphExpression(graph_w_pos, op=GraphExpression.SUM)
+            sub_expr.items[i] = sum_expr, multiplicity
+            sub_expr, i = sum_expr.indexTupleLens((0,))
+        assert sub_expr.op == GraphExpression.SUM
+        graph_w_pos, multiplicity = sub_expr.items[i]
+        contracted_graph = GraphWithPos(nx.contracted_nodes(graph_w_pos.G, u, v, self_loops=False))
+        graph_w_pos.G.add_edge(u, v)
+        sub_expr.insert(contracted_graph, multiplicity, at_index=i+1)
+
+        new_row = Row(self.main_window, self, "AI", new_graph_expr)
+        self.reference_count += 1
+        self.main_window.add_row(new_row)
 
 
 class GraphWidget(QWidget):
@@ -333,10 +401,14 @@ class MainWindow(QMainWindow):
                 new_action_bipartite.triggered.connect(lambda checked, ii=i, jj=j:
                                                        self.new_graph_row(nx.complete_multipartite_graph(ii, jj)))
 
-    def new_graph_row(self, graph=None):
-        row = Row(self, len(self.rows), None, None, GraphExpression(GraphWithPos(graph)))
+    def add_row(self, row: Row):
+        row.set_row_index(len(self.rows))
         self.layout.addLayout(row.layout)
         self.rows.append(row)
+
+    def new_graph_row(self, graph=None):
+        row = Row(self, None, None, GraphExpression(GraphWithPos(graph)))
+        self.add_row(row)
 
 
 if __name__ == '__main__':
