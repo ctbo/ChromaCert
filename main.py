@@ -1,7 +1,6 @@
 # ChromaCert (c) 2023 by Harald Bögeholz
 
 import sys
-import random
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -26,14 +25,14 @@ class RowLabel(QLabel):
         self.setFont(font)
 
     def contextMenuEvent(self, event):
-        contextMenu = QMenu(self)
+        context_menu = QMenu(self)
 
         # Sample action
-        sampleAction = contextMenu.addAction("Add Row")
-        sampleAction.triggered.connect(self.on_sample_action)
+        sample_action = context_menu.addAction("Add Row")
+        sample_action.triggered.connect(self.on_sample_action)
 
         # Display the context menu
-        contextMenu.exec(event.globalPos())
+        context_menu.exec(event.globalPos())
 
     def on_sample_action(self):
         print(f"Sample action triggered! {self.row.row_index + 1}")
@@ -112,7 +111,7 @@ class GraphExpression:
 
 
 class Row:
-    def __init__(self, main_window, row_index, parent_row, explanation, graph_expr : GraphExpression):
+    def __init__(self, main_window, row_index, parent_row, explanation, graph_expr: GraphExpression):
         self.main_window = main_window
         self.row_index = row_index
         self.parent_row = parent_row
@@ -138,7 +137,6 @@ class Row:
         if self.explanation:
             label_text += f" [{self.explanation}]"
         self.row_label.setText(label_text)
-
 
 
 class GraphWidget(QWidget):
@@ -203,7 +201,7 @@ class GraphWidget(QWidget):
             self.graph_with_pos.pos[self.dragged_node] = (event.xdata, event.ydata)
             self.draw_graph()
 
-    def on_release(self, event):
+    def on_release(self, _):
         # If dragging didn't occur, toggle the node's state
         if not self.drag_occurred and self.dragged_node is not None:
             if self.dragged_node in self.selected_nodes:
@@ -217,26 +215,29 @@ class GraphWidget(QWidget):
         self.drag_occurred = False  # Reset the drag_occurred flag
 
     def contextMenuEvent(self, event):
-        contextMenu = QMenu(self)
+        context_menu = QMenu(self)
 
-        createNodeAction = contextMenu.addAction("Create Vertex")
-        createNodeAction.triggered.connect(lambda: self.option_create_node(event.pos()))
+        create_node_action = context_menu.addAction("Create Vertex")
+        create_node_action.triggered.connect(lambda: self.option_create_node(event.pos()))
 
-        toggleEdgeAction = contextMenu.addAction("Toggle Edge")
-        toggleEdgeAction.triggered.connect(self.option_toggle_edge)
+        toggle_edge_action = context_menu.addAction("Toggle Edge")
+        toggle_edge_action.triggered.connect(self.option_toggle_edge)
         if len(self.selected_nodes) != 2:
-            toggleEdgeAction.setEnabled(False)
+            toggle_edge_action.setEnabled(False)
 
-        deleteNodesAction = contextMenu.addAction("Delete Vertices")
-        deleteNodesAction.triggered.connect(self.option_delete_nodes)
+        delete_nodes_action = context_menu.addAction("Delete Vertices")
+        delete_nodes_action.triggered.connect(self.option_delete_nodes)
         if not self.selected_nodes:
-            deleteNodesAction.setEnabled(False)
+            delete_nodes_action.setEnabled(False)
 
-        springLayoutAction = contextMenu.addAction("Spring Layout")
-        springLayoutAction.triggered.connect(self.option_spring_layout)
+        spring_layout_action = context_menu.addAction("Spring Layout")
+        spring_layout_action.triggered.connect(self.option_spring_layout)
+
+        test_action = context_menu.addAction("Test")
+        test_action.triggered.connect(self.option_test)
 
         # Show the context menu at the cursor's position
-        contextMenu.exec(event.globalPos())
+        context_menu.exec(event.globalPos())
 
     def option_create_node(self, position):
         # Adjust for canvas position within the widget
@@ -278,6 +279,9 @@ class GraphWidget(QWidget):
         self.graph_with_pos.pos = nx.spring_layout(self.graph_with_pos.G)
         self.draw_graph()
 
+    def option_test(self):
+        print(f"row {self.row.row_index+1}, index tuple {self.index_tuple}")
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -304,43 +308,31 @@ class MainWindow(QMainWindow):
         self.layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
 
     def create_menu(self):
-        menuBar = self.menuBar()
+        menu_bar = self.menuBar()
 
-        new_menu = menuBar.addMenu("New Graph")
+        new_menu = menu_bar.addMenu("New Graph")
         new_action_empty = new_menu.addAction("Empty")
         new_action_empty.triggered.connect(lambda: self.new_graph_row(nx.empty_graph(0, create_using=nx.Graph)))
         new_submenu_complete = new_menu.addMenu("Complete")
         for i in range(2, 11):
             new_action_complete = new_submenu_complete.addAction(f"K_{i}")
-            new_action_complete.triggered.connect(lambda checked, i=i: self.new_graph_row(nx.complete_graph(i)))
+            new_action_complete.triggered.connect(lambda checked, ii=i: self.new_graph_row(nx.complete_graph(ii)))
         new_submenu_wheel = new_menu.addMenu("Wheel")
         for i in range(3, 11):
             new_action_wheel = new_submenu_wheel.addAction(f"W_{i}")
-            new_action_wheel.triggered.connect(lambda checked, i=i: self.new_graph_row(nx.wheel_graph(i+1)))
+            new_action_wheel.triggered.connect(lambda checked, ii=i: self.new_graph_row(nx.wheel_graph(ii+1)))
         new_submenu_bipartite = new_menu.addMenu("Bipartite")
         for i in range(2, 6):
             for j in range(2, i+1):
                 new_action_bipartite = new_submenu_bipartite.addAction(f"K_{{{i}, {j}}}")
-                new_action_bipartite.triggered.connect(lambda checked, i=i, j=j:
-                                                       self.new_graph_row(nx.complete_multipartite_graph(i, j)))
+                new_action_bipartite.triggered.connect(lambda checked, ii=i, jj=j:
+                                                       self.new_graph_row(nx.complete_multipartite_graph(ii, jj)))
 
     def new_graph_row(self, graph=None):
         row = Row(self, len(self.rows), None, None, GraphExpression(GraphWithPos(graph)))
         self.layout.addLayout(row.layout)
         self.rows.append(row)
 
-# app = QApplication(sys.argv)
-# test = GraphExpression(GraphWithPos(nx.wheel_graph(7)), op=GraphExpression.PROD)
-# test.insert(GraphWithPos(nx.wheel_graph(6)), 1)
-# test2 = GraphExpression(GraphWithPos(nx.wheel_graph(7)), op=GraphExpression.SUM)
-# test2.insert(GraphWithPos(nx.wheel_graph(6)), 1)
-#
-# test.insert(test2, 1)
-# print(test.items)
-# widgets = test.create_widgets()
-# print([widget.text() if isinstance(widget, QLabel) else widget for widget in widgets])
-#
-# sys.exit(0)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
