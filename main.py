@@ -18,10 +18,9 @@ from matplotlib.backends.backend_qt5agg import (
 
 
 class RowLabel(QLabel):
-    def __init__(self, text, main_window=None, row_index=None, *args, **kwargs):
-        super().__init__(text, *args, **kwargs)
-        self.main_window = main_window
-        self.row_index = row_index
+    def __init__(self, row=None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.row = row
         font = self.font()
         font.setBold(True)
         self.setFont(font)
@@ -37,9 +36,7 @@ class RowLabel(QLabel):
         contextMenu.exec(event.globalPos())
 
     def on_sample_action(self):
-        print(f"Sample action triggered! {self.row_index=}")
-        if self.main_window:
-            self.main_window.new_graph_row()
+        print(f"Sample action triggered! {self.row.row_index + 1}")
 
 
 class GraphWithPos:
@@ -123,7 +120,7 @@ class Row:
         self.graph_expr = graph_expr
         self.reference_count = 0  # TODO rows that are referenced by other rows shouldn't be edited
 
-        self.row_label = RowLabel("", main_window=self.main_window, row_index=self.row_index)
+        self.row_label = RowLabel(row=self)
         self.format_row_label()
 
         self.layout = QHBoxLayout()
