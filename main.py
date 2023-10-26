@@ -480,7 +480,13 @@ class GraphWidget(QWidget):
         self.row.do_separate(self.index_tuple)
 
     def option_test(self):
-        print(f"row {self.row.row_index+1}, index tuple {self.index_tuple}")
+        node_options = {}
+        node_labels = {}
+        for node in self.graph_with_pos.G.nodes:
+            node_options[node] = "selected" if node in self.selected_nodes else "unselected"
+            node_labels[node] = ""
+        print(nx.to_latex_raw(self.graph_with_pos.G, pos=self.graph_with_pos.pos, node_options=node_options,
+                              node_label=node_labels, tikz_options="testing options"))
 
 
 class MainWindow(QMainWindow):
