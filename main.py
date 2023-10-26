@@ -161,8 +161,11 @@ class Row:
             label_text += f" [{self.explanation}]"
         self.row_label.setText(label_text)
 
-    def editing_allowed(self):
+    def selecting_allowed(self):
         return self.reference_count == 0
+
+    def editing_allowed(self):
+        return self.selecting_allowed() and self.parent_row is None
 
     def selected_vertices(self):
         """ return list of tuples (index_tuple, selected_nodes) for all graphs with selected vertices """
@@ -274,7 +277,7 @@ class GraphWidget(QWidget):
 
     def on_release(self, _):
         # If dragging didn't occur, toggle the node's state
-        if not self.drag_occurred and self.dragged_node is not None and self.row.editing_allowed():
+        if not self.drag_occurred and self.dragged_node is not None and self.row.selecting_allowed():
             if self.dragged_node in self.selected_nodes:
                 self.selected_nodes.remove(self.dragged_node)
             else:
