@@ -45,6 +45,13 @@ class GraphWithPos:
             self.pos = nx.spring_layout(self.G)
         else:
             self.pos = pos
+        self.selected_nodes = set()
+
+    def select_all(self):
+        self.selected_nodes = set(self.G.nodes)
+
+    def deselect_all(self):
+        self.selected_nodes = set()
 
 
 class GraphExpression:
@@ -120,6 +127,10 @@ class GraphExpression:
         expr, i = self.index_tuple_lens(index_tuple)
         return expr.items[i]
 
+    def deselect_all(self):
+        for expr, _ in self.items:
+            expr.deselect_all()
+
 
 class Row:
     def __init__(self, main_window, parent_row, explanation, graph_expr: GraphExpression):
@@ -166,8 +177,8 @@ class Row:
             item = self.layout.itemAt(i)
             widget = item.widget()
             if widget and isinstance(widget, GraphWidget):
-                if widget.selected_nodes:
-                    result.append((widget.index_tuple, widget.selected_nodes))
+                if widget.graph_with_pos.selected_nodes:
+                    result.append((widget.index_tuple, widget.graph_with_pos.selected_nodes))
         return result
 
     def can_add_identify(self):
@@ -188,6 +199,7 @@ class Row:
         assert len(selected_nodes) == 2
         u, v = selected_nodes
         new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
         sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
         if sub_expr.op != GraphExpression.SUM:
             graph_w_pos, multiplicity = sub_expr.items[i]
@@ -222,6 +234,7 @@ class Row:
         assert len(selected_nodes) == 2
         u, v = selected_nodes
         new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
         sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
         if sub_expr.op != GraphExpression.SUM:
             graph_w_pos, multiplicity = sub_expr.items[i]
@@ -250,6 +263,7 @@ class Row:
 
     def merge_isomorphic(self, index_tuple):
         new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
         sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
         graph_w_pos, multiplicity = sub_expr.items[i]
         iso_indices = []
@@ -280,6 +294,7 @@ class Row:
 
     def do_separate(self, index_tuple):
         new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
         sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
         graph_w_pos, multiplicity = sub_expr.items[i]
         sign = multiplicity // abs(multiplicity)
@@ -304,7 +319,6 @@ class GraphWidget(QWidget):
             self.graph_with_pos = GraphWithPos(nx.empty_graph(0, create_using=nx.Graph))
         else:
             self.graph_with_pos = graph_with_pos
-        self.selected_nodes = set()
         self.dragging = False  # Flag to check if we are dragging a vertex
         self.dragged_node = None  # Store the node being dragged
         self.drag_occurred = False  # Flag to check if a drag action took place
@@ -323,19 +337,17 @@ class GraphWidget(QWidget):
         self.canvas.mpl_connect('button_release_event', self.on_release)
 
     def select_all(self):
-        if len(self.selected_nodes) != self.graph_with_pos.G.number_of_nodes():
-            self.selected_nodes = set(self.graph_with_pos.G.nodes)
-            self.draw_graph()
+        self.graph_with_pos.select_all()
+        self.draw_graph()
 
     def deselect_all(self):
-        if self.selected_nodes:
-            self.selected_nodes = set()
-            self.draw_graph()
+        self.graph_with_pos.deselect_all()
+        self.draw_graph()
 
     def draw_graph(self):
         self.ax.clear()
         node_colors = [
-            'red' if node in self.selected_nodes else 'blue' for node in self.graph_with_pos.G.nodes()
+            'red' if node in self.graph_with_pos.selected_nodes else 'blue' for node in self.graph_with_pos.G.nodes()
         ]
         nx.draw(self.graph_with_pos.G, pos=self.graph_with_pos.pos,
                 ax=self.ax, with_labels=False, node_color=node_colors, node_size=100)
@@ -368,10 +380,10 @@ class GraphWidget(QWidget):
     def on_release(self, _):
         # If dragging didn't occur, toggle the node's state
         if not self.drag_occurred and self.dragged_node is not None and self.row.selecting_allowed():
-            if self.dragged_node in self.selected_nodes:
-                self.selected_nodes.remove(self.dragged_node)
+            if self.dragged_node in self.graph_with_pos.selected_nodes:
+                self.graph_with_pos.selected_nodes.remove(self.dragged_node)
             else:
-                self.selected_nodes.add(self.dragged_node)
+                self.graph_with_pos.selected_nodes.add(self.dragged_node)
             self.draw_graph()
 
         self.dragging = False
@@ -388,12 +400,12 @@ class GraphWidget(QWidget):
 
         toggle_edge_action = context_menu.addAction("Toggle Edge")
         toggle_edge_action.triggered.connect(self.option_toggle_edge)
-        if len(self.selected_nodes) != 2 or not self.row.editing_allowed():
+        if len(self.graph_with_pos.selected_nodes) != 2 or not self.row.editing_allowed():
             toggle_edge_action.setEnabled(False)
 
         delete_nodes_action = context_menu.addAction("Delete Vertices")
         delete_nodes_action.triggered.connect(self.option_delete_nodes)
-        if not self.selected_nodes or not self.row.editing_allowed():
+        if not self.graph_with_pos.selected_nodes or not self.row.editing_allowed():
             delete_nodes_action.setEnabled(False)
 
         spring_layout_action = context_menu.addAction("Spring Layout")
@@ -448,8 +460,8 @@ class GraphWidget(QWidget):
         self.draw_graph()
 
     def option_toggle_edge(self):
-        if len(self.selected_nodes) == 2:
-            u, v = self.selected_nodes
+        if len(self.graph_with_pos.selected_nodes) == 2:
+            u, v = self.graph_with_pos.selected_nodes
             if self.graph_with_pos.G.has_edge(u, v):
                 self.graph_with_pos.G.remove_edge(u, v)
             else:
@@ -457,10 +469,10 @@ class GraphWidget(QWidget):
             self.draw_graph()  # Redraw the graph to reflect the changes
 
     def option_delete_nodes(self):
-        for node in self.selected_nodes:
+        for node in self.graph_with_pos.selected_nodes:
             self.graph_with_pos.G.remove_node(node)
             del self.graph_with_pos.pos[node]
-        self.selected_nodes = set()
+        self.graph_with_pos.selected_nodes = set()
         self.draw_graph()
 
     def option_spring_layout(self):
@@ -483,7 +495,7 @@ class GraphWidget(QWidget):
         node_options = {}
         node_labels = {}
         for node in self.graph_with_pos.G.nodes:
-            node_options[node] = "selected" if node in self.selected_nodes else "unselected"
+            node_options[node] = "selected" if node in self.graph_with_pos.selected_nodes else "unselected"
             node_labels[node] = ""
         print(nx.to_latex_raw(self.graph_with_pos.G, pos=self.graph_with_pos.pos, node_options=node_options,
                               node_label=node_labels, tikz_options="testing options"))
