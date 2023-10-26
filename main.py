@@ -39,7 +39,7 @@ class RowLabel(QLabel):
     def on_sample_action(self):
         print(f"Sample action triggered! {self.row_index=}")
         if self.main_window:
-            self.main_window.add_row()
+            self.main_window.new_graph_row()
 
 
 class GraphWithPos:
@@ -75,15 +75,19 @@ class GraphExpression:
                         self.items[i] = (item, multiplicity+multiplicity_delta)
                     return
         if multiplicity_delta != 0:
-            self.items.append((graph_expr, multiplicity_delta))
+            if at_index is None:
+                self.items.append((graph_expr, multiplicity_delta))
+            else:
+                self.items.insert(at_index, (graph_expr, multiplicity_delta))
 
-    def create_widgets(self, index_tuple=()):
+    def create_widgets(self, row, index_tuple=()):
         if not self.items:
             return [QLabel(f"EMPTY {'SUM' if self.op == self.SUM else 'PROD'}")]
         widgets = []
         first = True
         for i in range(len(self.items)):
             item, multiplicity = self.items[i]
+            new_index_tuple = index_tuple + (i,)
 
             if self.op == self.SUM:
                 if multiplicity == 1:
@@ -95,12 +99,12 @@ class GraphExpression:
                     widgets.append(QLabel(f"{multiplicity}" if first else f"{multiplicity:+}"))
 
             if isinstance(item, GraphWithPos):
-                widgets.append(GraphWidget(graph_with_pos=item))
+                widgets.append(GraphWidget(graph_with_pos=item, row=row, index_tuple=new_index_tuple))
             else:
                 assert isinstance(item, GraphExpression)
                 if item.op < self.op:
                     widgets.append(QLabel("("))
-                widgets += item.create_widgets(index_tuple + (i,))
+                widgets += item.create_widgets(row, new_index_tuple)
                 if item.op < self.op:
                     widgets.append(QLabel(")"))
 
@@ -111,27 +115,42 @@ class GraphExpression:
 
 
 class Row:
-    def init(self, main_window, row_index, parent_row, graph_expr):
+    def __init__(self, main_window, row_index, parent_row, explanation, graph_expr : GraphExpression):
         self.main_window = main_window
         self.row_index = row_index
         self.parent_row = parent_row
+        self.explanation = explanation
         self.graph_expr = graph_expr
+        self.reference_count = 0  # TODO rows that are referenced by other rows shouldn't be edited
 
-        self.create_widgets()
+        self.row_label = RowLabel("", main_window=self.main_window, row_index=self.row_index)
+        self.format_row_label()
 
-    def create_widgets(self):
-        hbox = QHBoxLayout()
-        row_label = RowLabel(f"({self.row_index+1})", main_window=self.main_window, row_index=self.row_index)
-        hbox.addWidget(row_label)
+        self.layout = QHBoxLayout()
+        self.layout.addWidget(self.row_label)
 
-        hbox.addStretch(1)  # push widgets to the left in each row
+        for widget in self.graph_expr.create_widgets(self):
+            self.layout.addWidget(widget)
+
+        self.layout.addStretch(1)  # push widgets to the left in each row
+
+    def format_row_label(self):
+        label_text = f"({self.row_index+1})"
+        if self.parent_row:
+            label_text += f" = ({self.parent_row.row_index+1})"
+        if self.explanation:
+            label_text += f" [{self.explanation}]"
+        self.row_label.setText(label_text)
+
 
 
 class GraphWidget(QWidget):
-    def __init__(self, graph_with_pos=None):
+    def __init__(self, graph_with_pos=None, row=None, index_tuple=None):
         super().__init__()
         self.setFixedSize(200, 200)  # Set a fixed size for each graph widget
 
+        self.row = row
+        self.index_tuple = index_tuple
         if graph_with_pos is None:
             self.graph_with_pos = GraphWithPos(nx.empty_graph(0, create_using=nx.Graph))
         else:
@@ -292,36 +311,26 @@ class MainWindow(QMainWindow):
 
         new_menu = menuBar.addMenu("New Graph")
         new_action_empty = new_menu.addAction("Empty")
-        new_action_empty.triggered.connect(lambda: self.add_row(nx.empty_graph(0, create_using=nx.Graph)))
+        new_action_empty.triggered.connect(lambda: self.new_graph_row(nx.empty_graph(0, create_using=nx.Graph)))
         new_submenu_complete = new_menu.addMenu("Complete")
         for i in range(2, 11):
             new_action_complete = new_submenu_complete.addAction(f"K_{i}")
-            new_action_complete.triggered.connect(lambda checked, i=i: self.add_row(nx.complete_graph(i)))
+            new_action_complete.triggered.connect(lambda checked, i=i: self.new_graph_row(nx.complete_graph(i)))
         new_submenu_wheel = new_menu.addMenu("Wheel")
         for i in range(3, 11):
             new_action_wheel = new_submenu_wheel.addAction(f"W_{i}")
-            new_action_wheel.triggered.connect(lambda checked, i=i: self.add_row(nx.wheel_graph(i+1)))
+            new_action_wheel.triggered.connect(lambda checked, i=i: self.new_graph_row(nx.wheel_graph(i+1)))
         new_submenu_bipartite = new_menu.addMenu("Bipartite")
         for i in range(2, 6):
             for j in range(2, i+1):
                 new_action_bipartite = new_submenu_bipartite.addAction(f"K_{{{i}, {j}}}")
                 new_action_bipartite.triggered.connect(lambda checked, i=i, j=j:
-                                                       self.add_row(nx.complete_multipartite_graph(i, j)))
+                                                       self.new_graph_row(nx.complete_multipartite_graph(i, j)))
 
-    def add_row(self, graph=None):
-        row_number = len(self.rows) + 1
-        hbox = QHBoxLayout()
-        row_label = RowLabel(f"({row_number})", main_window=self, row_index=row_number-1)
-        hbox.addWidget(row_label)
-
-        if graph is not None:
-            graph_widget = GraphWidget(graph_with_pos=GraphWithPos(graph))
-            hbox.addWidget(graph_widget)
-
-        hbox.addStretch(1)  # push widgets to the left in each row
-
-        self.layout.addLayout(hbox)
-        self.rows.append(hbox)
+    def new_graph_row(self, graph=None):
+        row = Row(self, len(self.rows), None, None, GraphExpression(GraphWithPos(graph)))
+        self.layout.addLayout(row.layout)
+        self.rows.append(row)
 
 # app = QApplication(sys.argv)
 # test = GraphExpression(GraphWithPos(nx.wheel_graph(7)), op=GraphExpression.PROD)
