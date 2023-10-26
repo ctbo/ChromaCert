@@ -254,6 +254,16 @@ class Row:
         self.reference_count += 1
         self.main_window.add_row(new_row)
 
+    def select_single_graph(self, index_tuple):
+        for j in range(self.layout.count()):
+            item = self.layout.itemAt(j)
+            widget = item.widget()
+            if widget and isinstance(widget, GraphWidget):
+                if widget.index_tuple == index_tuple:
+                    widget.select_all()
+                else:
+                    widget.deselect_all()
+
     def merge_isomorphic(self, index_tuple):
         new_graph_expr = deepcopy(self.graph_expr)
         sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
@@ -268,23 +278,35 @@ class Row:
             if multiplicity != 0:
                 sub_expr.items[i] = (graph_w_pos, multiplicity)
             else:
+                # all copies of this graph cancel out
                 # delete item i altogether by adding it to iso_indices
                 iso_indices = sorted(iso_indices + [i])
 
             for j in iso_indices[::-1]:
                 del sub_expr.items[j]
+
             new_row = Row(self.main_window, self, "collect", new_graph_expr)
             self.reference_count += 1
             self.main_window.add_row(new_row)
+            self.select_single_graph(index_tuple)
 
-            for j in range(self.layout.count()):
-                item = self.layout.itemAt(j)
-                widget = item.widget()
-                if widget and isinstance(widget, GraphWidget):
-                    if widget.index_tuple == index_tuple:
-                        widget.select_all()
-                    else:
-                        widget.deselect_all()
+    def can_separate(self, index_tuple):
+        _, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
+        return abs(multiplicity) > 1
+
+    def do_separate(self, index_tuple):
+        new_graph_expr = deepcopy(self.graph_expr)
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
+        graph_w_pos, multiplicity = sub_expr.items[i]
+        sign = multiplicity // abs(multiplicity)
+        assert abs(multiplicity) > 1
+        sub_expr.items[i] = (graph_w_pos, multiplicity - sign)
+        sub_expr.insert(deepcopy(graph_w_pos), sign, at_index=i+1)
+
+        new_row = Row(self.main_window, self, "separate", new_graph_expr)
+        self.reference_count += 1
+        self.main_window.add_row(new_row)
+        self.select_single_graph(index_tuple)
 
 
 class GraphWidget(QWidget):
@@ -396,6 +418,11 @@ class GraphWidget(QWidget):
         merge_isomorphic_action = context_menu.addAction("Collect Isomorphic")
         merge_isomorphic_action.triggered.connect(self.option_merge_isomorphic)
 
+        separate_action = context_menu.addAction("Separate Term")
+        separate_action.triggered.connect(self.option_separate)
+        if not self.row.can_separate(self.index_tuple):
+            separate_action.setEnabled(False)
+
         test_action = context_menu.addAction("Test")
         test_action.triggered.connect(self.option_test)
 
@@ -444,6 +471,9 @@ class GraphWidget(QWidget):
 
     def option_merge_isomorphic(self):
         self.row.merge_isomorphic(self.index_tuple)
+
+    def option_separate(self):
+        self.row.do_separate(self.index_tuple)
 
     def option_test(self):
         print(f"row {self.row.row_index+1}, index tuple {self.index_tuple}")
