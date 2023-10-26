@@ -53,6 +53,7 @@ class RowLabel(QLabel):
     def on_dc(self):
         self.row.do_delete_contract()
 
+
 class GraphWithPos:
     def __init__(self, graph, pos=None):
         self.G = graph
@@ -253,6 +254,24 @@ class Row:
         self.reference_count += 1
         self.main_window.add_row(new_row)
 
+    def merge_isomorphic(self, index_tuple):
+        new_graph_expr = deepcopy(self.graph_expr)
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
+        graph_w_pos, multiplicity = sub_expr.items[i]
+        iso_indices = []
+        for j in range(len(sub_expr.items)):
+            graph_w_pos2, multiplicity2 = sub_expr.items[j]
+            if j != i and nx.is_isomorphic(graph_w_pos.G, graph_w_pos2.G):
+                iso_indices.append(j)
+                multiplicity += multiplicity2
+        if iso_indices:
+            sub_expr.items[i] = (graph_w_pos, multiplicity)
+            for j in iso_indices[::-1]:
+                del sub_expr.items[j]
+            new_row = Row(self.main_window, self, "merge", new_graph_expr)
+            self.reference_count += 1
+            self.main_window.add_row(new_row)
+
 
 class GraphWidget(QWidget):
     def __init__(self, graph_with_pos=None, row=None, index_tuple=None):
@@ -350,6 +369,9 @@ class GraphWidget(QWidget):
         spring_layout_action = context_menu.addAction("Spring Layout")
         spring_layout_action.triggered.connect(self.option_spring_layout)
 
+        merge_isomorphic_action = context_menu.addAction("Merge Isomorphic")
+        merge_isomorphic_action.triggered.connect(self.option_merge_isomorphic)
+
         test_action = context_menu.addAction("Test")
         test_action.triggered.connect(self.option_test)
 
@@ -395,6 +417,9 @@ class GraphWidget(QWidget):
     def option_spring_layout(self):
         self.graph_with_pos.pos = nx.spring_layout(self.graph_with_pos.G)
         self.draw_graph()
+
+    def option_merge_isomorphic(self):
+        self.row.merge_isomorphic(self.index_tuple)
 
     def option_test(self):
         print(f"row {self.row.row_index+1}, index tuple {self.index_tuple}")
