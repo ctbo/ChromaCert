@@ -138,6 +138,9 @@ class Row:
             label_text += f" [{self.explanation}]"
         self.row_label.setText(label_text)
 
+    def editing_allowed(self):
+        return self.reference_count == 0
+
 
 class GraphWidget(QWidget):
     def __init__(self, graph_with_pos=None, row=None, index_tuple=None):
@@ -203,7 +206,7 @@ class GraphWidget(QWidget):
 
     def on_release(self, _):
         # If dragging didn't occur, toggle the node's state
-        if not self.drag_occurred and self.dragged_node is not None:
+        if not self.drag_occurred and self.dragged_node is not None and self.row.editing_allowed():
             if self.dragged_node in self.selected_nodes:
                 self.selected_nodes.remove(self.dragged_node)
             else:
@@ -219,15 +222,17 @@ class GraphWidget(QWidget):
 
         create_node_action = context_menu.addAction("Create Vertex")
         create_node_action.triggered.connect(lambda: self.option_create_node(event.pos()))
+        if not self.row.editing_allowed():
+            create_node_action.setEnabled(False)
 
         toggle_edge_action = context_menu.addAction("Toggle Edge")
         toggle_edge_action.triggered.connect(self.option_toggle_edge)
-        if len(self.selected_nodes) != 2:
+        if len(self.selected_nodes) != 2 or not self.row.editing_allowed():
             toggle_edge_action.setEnabled(False)
 
         delete_nodes_action = context_menu.addAction("Delete Vertices")
         delete_nodes_action.triggered.connect(self.option_delete_nodes)
-        if not self.selected_nodes:
+        if not self.selected_nodes or not self.row.editing_allowed():
             delete_nodes_action.setEnabled(False)
 
         spring_layout_action = context_menu.addAction("Spring Layout")
