@@ -265,7 +265,12 @@ class Row:
                 iso_indices.append(j)
                 multiplicity += multiplicity2
         if iso_indices:
-            sub_expr.items[i] = (graph_w_pos, multiplicity)
+            if multiplicity != 0:
+                sub_expr.items[i] = (graph_w_pos, multiplicity)
+            else:
+                # delete item i altogether by adding it to iso_indices
+                iso_indices = sorted(iso_indices + [i])
+
             for j in iso_indices[::-1]:
                 del sub_expr.items[j]
             new_row = Row(self.main_window, self, "collect", new_graph_expr)
