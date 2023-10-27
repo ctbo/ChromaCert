@@ -206,11 +206,11 @@ class GraphExpression:
                 elif multiplicity < 0:
                     denominator.append((expr, -multiplicity))
             if not numerator:
-                result = f"\frac{{1}}{{{latex_helper(denominator)}}}"
+                result = f"\\frac{{1}}{{{latex_helper(denominator)}}}"
             elif not denominator:
                 result = latex_helper(numerator)
             else:
-                result = f"\frac{{{latex_helper(numerator)}}}{{{latex_helper(denominator)}"
+                result = f"\\frac{{{latex_helper(numerator)}}}{{{latex_helper(denominator)}}}"
 
         return result
 
