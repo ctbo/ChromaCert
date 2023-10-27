@@ -355,8 +355,11 @@ class Row:
             # TODO modal dialog
             print("Clique isn't separating.")
             return
-        sub_expr.items[i] = (GraphWithPos(graph_w_pos.G.subgraph(clique).copy(), pos=graph_w_pos.pos),
-                             -multiplicity * (len(components) - 1))
+        if clique:
+            sub_expr.items[i] = (GraphWithPos(graph_w_pos.G.subgraph(clique).copy(), pos=graph_w_pos.pos),
+                                 -multiplicity * (len(components) - 1))
+        else:
+            del sub_expr.items[i]  # the empty graph has chromatic polynomial 1 and can be deleted
         for component in components:
             subgraph_nodes = component.union(clique)
             subgraph_w_pos = GraphWithPos(graph_w_pos.G.subgraph(subgraph_nodes).copy(), pos=graph_w_pos.pos)
@@ -366,7 +369,6 @@ class Row:
         self.reference_count += 1
         self.main_window.add_row(new_row)
         self.deselect_all_except(index_tuple)
-
 
     def select_single_graph(self, index_tuple):
         for j in range(self.layout.count()):
@@ -394,7 +396,7 @@ class Row:
         iso_indices = []
         for j in range(len(sub_expr.items)):
             graph_w_pos2, multiplicity2 = sub_expr.items[j]
-            if j != i and nx.is_isomorphic(graph_w_pos.G, graph_w_pos2.G):
+            if j != i and isinstance(graph_w_pos2, GraphWithPos) and nx.is_isomorphic(graph_w_pos.G, graph_w_pos2.G):
                 iso_indices.append(j)
                 multiplicity += multiplicity2
 
