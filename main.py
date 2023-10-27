@@ -237,23 +237,20 @@ class Row:
                     result.append((widget.index_tuple, widget.graph_with_pos.selected_nodes))
         return result
 
-    def can_add_identify(self):
-        sel = self.selected_vertices()
-        if len(sel) == 1:
-            index_tuple, selected_nodes = sel[0]
-            if len(selected_nodes) == 2:
-                u, v = selected_nodes
-                graph_with_pos, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
-                if not graph_with_pos.G.has_edge(u, v):
-                    return True
+    def can_add_identify(self, index_tuple):
+        graph_with_pos, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
+        if len(graph_with_pos.selected_nodes) == 2:
+            u, v = graph_with_pos.selected_nodes
+            if not graph_with_pos.G.has_edge(u, v):
+                return True
         return False
 
-    def do_add_identify(self):
-        sel = self.selected_vertices()
-        assert len(sel) == 1
-        index_tuple, selected_nodes = sel[0]
-        assert len(selected_nodes) == 2
-        u, v = selected_nodes
+    def do_add_identify(self, index_tuple):
+        graph_with_pos, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
+        assert len(graph_with_pos.selected_nodes) == 2
+        u, v = graph_with_pos.selected_nodes
+        assert not graph_with_pos.G.has_edge(u, v)
+
         new_graph_expr = deepcopy(self.graph_expr)
         new_graph_expr.deselect_all()
         sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
@@ -271,24 +268,22 @@ class Row:
         new_row = Row(self.main_window, self, "AI", new_graph_expr)
         self.reference_count += 1
         self.main_window.add_row(new_row)
+        self.deselect_all_except(index_tuple)
 
-    def can_delete_contract(self):
-        sel = self.selected_vertices()
-        if len(sel) == 1:
-            index_tuple, selected_nodes = sel[0]
-            if len(selected_nodes) == 2:
-                u, v = selected_nodes
-                graph_with_pos, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
-                if graph_with_pos.G.has_edge(u, v):
-                    return True
+    def can_delete_contract(self, index_tuple):
+        graph_with_pos, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
+        if len(graph_with_pos.selected_nodes) == 2:
+            u, v = graph_with_pos.selected_nodes
+            if graph_with_pos.G.has_edge(u, v):
+                return True
         return False
 
-    def do_delete_contract(self):
-        sel = self.selected_vertices()
-        assert len(sel) == 1
-        index_tuple, selected_nodes = sel[0]
-        assert len(selected_nodes) == 2
-        u, v = selected_nodes
+    def do_delete_contract(self, index_tuple):
+        graph_with_pos, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
+        assert len(graph_with_pos.selected_nodes) == 2
+        u, v = graph_with_pos.selected_nodes
+        assert graph_with_pos.G.has_edge(u, v)
+
         new_graph_expr = deepcopy(self.graph_expr)
         new_graph_expr.deselect_all()
         sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
@@ -306,6 +301,7 @@ class Row:
         new_row = Row(self.main_window, self, "DC", new_graph_expr)
         self.reference_count += 1
         self.main_window.add_row(new_row)
+        self.deselect_all_except(index_tuple)
 
     def select_single_graph(self, index_tuple):
         for j in range(self.layout.count()):
@@ -315,6 +311,14 @@ class Row:
                 if widget.index_tuple == index_tuple:
                     widget.select_all()
                 else:
+                    widget.deselect_all()
+
+    def deselect_all_except(self, index_tuple):
+        for j in range(self.layout.count()):
+            item = self.layout.itemAt(j)
+            widget = item.widget()
+            if widget and isinstance(widget, GraphWidget):
+                if widget.index_tuple != index_tuple:
                     widget.deselect_all()
 
     def merge_isomorphic(self, index_tuple):
@@ -483,12 +487,12 @@ class GraphWidget(QWidget):
 
         ai_action = context_menu.addAction("Addition-Identification")
         ai_action.triggered.connect(self.option_ai)
-        if not self.row.can_add_identify():
+        if not self.row.can_add_identify(self.index_tuple):
             ai_action.setEnabled(False)
 
         dc_action = context_menu.addAction("Deletion-Contraction")
         dc_action.triggered.connect(self.option_dc)
-        if not self.row.can_delete_contract():
+        if not self.row.can_delete_contract(self.index_tuple):
             dc_action.setEnabled(False)
 
         merge_isomorphic_action = context_menu.addAction("Collect Isomorphic")
@@ -548,10 +552,10 @@ class GraphWidget(QWidget):
         self.draw_graph()
 
     def option_ai(self):
-        self.row.do_add_identify()
+        self.row.do_add_identify(self.index_tuple)
 
     def option_dc(self):
-        self.row.do_delete_contract()
+        self.row.do_delete_contract(self.index_tuple)
 
     def option_merge_isomorphic(self):
         self.row.merge_isomorphic(self.index_tuple)
