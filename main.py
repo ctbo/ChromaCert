@@ -44,7 +44,7 @@ class GraphWithPos:
         if pos is None:
             self.pos = nx.spring_layout(self.G)
         else:
-            self.pos = pos
+            self.pos = pos.copy()
         self.selected_nodes = set()
 
     def select_all(self):
@@ -65,14 +65,24 @@ class GraphWithPos:
         # TODO report bug in NetworkX. deepcopy() shouldn't be necessary, positions shouldn't be converted to strings
         return r"\fbox{" + latex + "}"
 
+    def selection_is_clique(self):
+        nodes = list(self.selected_nodes)
+        for i in range(1, len(nodes)):
+            for j in range(i):
+                if not self.G.has_edge(nodes[i], nodes[j]):
+                    return False
+        return True
+
 
 class GraphExpression:
     SUM = 1    # this encodes the type and the precedence level
     PROD = 2
 
-    def __init__(self, graph_w_pos=None, op=SUM):
+    def __init__(self, graph_w_pos=None, item=None, op=SUM):
         self.op = op
-        if graph_w_pos is None:
+        if item is not None:
+            self.items = [item]
+        elif graph_w_pos is None:
             self.items = []
         else:
             assert isinstance(graph_w_pos, GraphWithPos)
@@ -128,12 +138,28 @@ class GraphExpression:
             first = False
         return widgets
 
-    def index_tuple_lens(self, index_tuple):
+    def index_tuple_lens(self, index_tuple, force_op=None):
+        """
+        :param index_tuple:
+        :param force_op: if not None, modify expression so that it is of type `force_op` if it isn't already
+        :return: a "lens" consisting of a GraphExpression and an index
+        """
         if len(index_tuple) == 1:
-            return self, index_tuple[0]
+            lens = self, index_tuple[0]
         else:
             sub_expr, _ = self.items[index_tuple[0]]
-            return sub_expr.index_tuple_lens(index_tuple[1:])
+            lens = sub_expr.index_tuple_lens(index_tuple[1:])
+        if force_op is None or force_op == lens[0].op:
+            return lens
+        sub_expr, i = lens
+        item = sub_expr.items[i]
+        if len(sub_expr.items) == 1 and item[1] == 1:
+            # if there's only one item with multiplicity 1 we can simply change the operation type
+            sub_expr.op = force_op
+            return lens
+        new_sub_expr = GraphExpression(item=item, op=force_op)
+        sub_expr.items[i] = (new_sub_expr, 1)
+        return (new_sub_expr, 0)
 
     def at_index_tuple(self, index_tuple):
         expr, i = self.index_tuple_lens(index_tuple)
@@ -254,13 +280,7 @@ class Row:
 
         new_graph_expr = deepcopy(self.graph_expr)
         new_graph_expr.deselect_all()
-        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
-        if sub_expr.op != GraphExpression.SUM:
-            graph_w_pos, multiplicity = sub_expr.items[i]
-            sum_expr = GraphExpression(graph_w_pos, op=GraphExpression.SUM)
-            sub_expr.items[i] = sum_expr, multiplicity
-            sub_expr, i = sum_expr.index_tuple_lens((0,))
-        assert sub_expr.op == GraphExpression.SUM
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple, force_op=GraphExpression.SUM)
         graph_w_pos, multiplicity = sub_expr.items[i]
         contracted_graph = GraphWithPos(nx.contracted_nodes(graph_w_pos.G, u, v, self_loops=False))
         graph_w_pos.G.add_edge(u, v)
@@ -287,13 +307,7 @@ class Row:
 
         new_graph_expr = deepcopy(self.graph_expr)
         new_graph_expr.deselect_all()
-        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
-        if sub_expr.op != GraphExpression.SUM:
-            graph_w_pos, multiplicity = sub_expr.items[i]
-            sum_expr = GraphExpression(graph_w_pos, op=GraphExpression.SUM)
-            sub_expr.items[i] = sum_expr, multiplicity
-            sub_expr, i = sum_expr.index_tuple_lens((0,))
-        assert sub_expr.op == GraphExpression.SUM
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple, force_op=GraphExpression.SUM)
         graph_w_pos, multiplicity = sub_expr.items[i]
         contracted_graph = GraphWithPos(nx.contracted_nodes(graph_w_pos.G, u, v, self_loops=False))
         graph_w_pos.G.remove_edge(u, v)
@@ -303,6 +317,44 @@ class Row:
         self.reference_count += 1
         self.main_window.add_row(new_row)
         self.deselect_all_except(index_tuple)
+
+    def can_clique_sep(self, index_tuple):
+        graph_w_pos, _ = self.graph_expr.at_index_tuple(index_tuple)
+        return graph_w_pos.selection_is_clique()
+
+    def do_clique_sep(self, index_tuple):
+        graph_w_pos, _ = self.graph_expr.at_index_tuple(index_tuple)
+        assert graph_w_pos.selection_is_clique()
+        clique = graph_w_pos.selected_nodes
+
+        new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple, force_op=GraphExpression.PROD)
+        graph_w_pos, multiplicity = sub_expr.items[i]
+
+        H = graph_w_pos.G.copy()
+        if len(graph_w_pos.selected_nodes) >= 1 and len(nx.connected_components(H)) > 1:
+            # TODO modal dialog
+            print("Can't separate by this clique: graph is not connected.")
+            return
+        H.remove_nodes_from(clique)
+        components = list(nx.connected_components(H))
+        if len(components) <= 1:
+            # TODO modal dialog
+            print("Clique isn't separating.")
+            return
+        sub_expr.items[i] = (GraphWithPos(graph_w_pos.G.subgraph(clique).copy(), pos=graph_w_pos.pos),
+                             -multiplicity * (len(components) - 1))
+        for component in components:
+            subgraph_nodes = component.union(clique)
+            subgraph_w_pos = GraphWithPos(graph_w_pos.G.subgraph(subgraph_nodes).copy(), pos=graph_w_pos.pos)
+            sub_expr.insert(subgraph_w_pos, multiplicity, at_index=i)
+
+        new_row = Row(self.main_window, self, "separate", new_graph_expr)
+        self.reference_count += 1
+        self.main_window.add_row(new_row)
+        self.deselect_all_except(index_tuple)
+
 
     def select_single_graph(self, index_tuple):
         for j in range(self.layout.count()):
@@ -363,7 +415,7 @@ class Row:
         sub_expr.items[i] = (graph_w_pos, multiplicity - sign)
         sub_expr.insert(deepcopy(graph_w_pos), sign, at_index=i+1)
 
-        new_row = Row(self.main_window, self, "separate", new_graph_expr)
+        new_row = Row(self.main_window, self, "split term", new_graph_expr)
         self.reference_count += 1
         self.main_window.add_row(new_row)
         self.select_single_graph(index_tuple)
@@ -502,12 +554,19 @@ class GraphWidget(QWidget):
         if not self.row.can_delete_contract(self.index_tuple):
             dc_action.setEnabled(False)
 
+        clique_sep_action = context_menu.addAction("Separate by Clique")
+        clique_sep_action.triggered.connect(self.option_clique_sep)
+        if not self.row.can_clique_sep(self.index_tuple):
+            clique_sep_action.setEnabled(False)
+
+        context_menu.addSeparator()
+
         merge_isomorphic_action = context_menu.addAction("Collect Isomorphic")
         merge_isomorphic_action.triggered.connect(self.option_merge_isomorphic)
         if not self.row.selecting_allowed():
             merge_isomorphic_action.setEnabled(False)
 
-        separate_action = context_menu.addAction("Separate Term")
+        separate_action = context_menu.addAction("Split Term")
         separate_action.triggered.connect(self.option_separate)
         if not self.row.can_separate(self.index_tuple) or not self.row.selecting_allowed():
             separate_action.setEnabled(False)
@@ -569,6 +628,9 @@ class GraphWidget(QWidget):
     def option_dc(self):
         self.row.do_delete_contract(self.index_tuple)
 
+    def option_clique_sep(self):
+        self.row.do_clique_sep(self.index_tuple)
+
     def option_merge_isomorphic(self):
         self.row.merge_isomorphic(self.index_tuple)
 
@@ -576,8 +638,7 @@ class GraphWidget(QWidget):
         self.row.do_separate(self.index_tuple)
 
     def option_test(self):
-        cliques = list(nx.find_cliques(self.graph_with_pos.G))
-        print(cliques)
+        print(nx.chromatic_polynomial(self.graph_with_pos.G))
 
 
 class MainWindow(QMainWindow):
