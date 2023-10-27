@@ -559,7 +559,8 @@ class GraphWidget(QWidget):
         self.draw_graph()
 
     def option_max_clique(self):
-        self.graph_with_pos.selected_nodes = nx.approximation.max_clique(self.graph_with_pos.G)
+        max_clique = max(nx.find_cliques(self.graph_with_pos.G), key=len)
+        self.graph_with_pos.selected_nodes = set(max_clique)
         self.draw_graph()
 
     def option_ai(self):
@@ -575,13 +576,8 @@ class GraphWidget(QWidget):
         self.row.do_separate(self.index_tuple)
 
     def option_test(self):
-        node_options = {}
-        node_labels = {}
-        for node in self.graph_with_pos.G.nodes:
-            node_options[node] = "selected" if node in self.graph_with_pos.selected_nodes else "unselected"
-            node_labels[node] = ""
-        print(nx.to_latex_raw(self.graph_with_pos.G, pos=self.graph_with_pos.pos, node_options=node_options,
-                              node_label=node_labels, tikz_options="testing options"))
+        cliques = list(nx.find_cliques(self.graph_with_pos.G))
+        print(cliques)
 
 
 class MainWindow(QMainWindow):
