@@ -29,13 +29,19 @@ class RowLabel(QLabel):
         context_menu = QMenu(self)
 
         latex_action = context_menu.addAction("Export as LaTeX")
-        latex_action.triggered.connect(self.on_latex_action)
+        latex_action.triggered.connect(self.on_latex)
+
+        debug_action = context_menu.addAction("DEBUG Row")
+        debug_action.triggered.connect(self.on_debug)
 
         # Display the context menu
         context_menu.exec(event.globalPos())
 
-    def on_latex_action(self):
+    def on_latex(self):
         print(self.row.derivation_to_latex_raw())
+
+    def on_debug(self):
+        print(self.row.graph_expr)
 
 
 class GraphWithPos:
@@ -72,6 +78,9 @@ class GraphWithPos:
                 if not self.G.has_edge(nodes[i], nodes[j]):
                     return False
         return True
+
+    def __str__(self):
+        return "<G>"  # TODO this could show more information
 
 
 class GraphExpression:
@@ -214,6 +223,9 @@ class GraphExpression:
 
         return result
 
+    def __str__(self):
+        t = "SUM" if self.op == self.SUM else "PROD"
+        return f"{t}({', '.join('('+str(expr)+', ' + str(multiplicity)+')' for expr, multiplicity in self.items)})"
 
 class Row:
     def __init__(self, main_window, parent_row, explanation, graph_expr: GraphExpression):
@@ -385,21 +397,28 @@ class Row:
             if j != i and nx.is_isomorphic(graph_w_pos.G, graph_w_pos2.G):
                 iso_indices.append(j)
                 multiplicity += multiplicity2
-        if iso_indices:
-            if multiplicity != 0:
-                sub_expr.items[i] = (graph_w_pos, multiplicity)
-            else:
-                # all copies of this graph cancel out
-                # delete item i altogether by adding it to iso_indices
-                iso_indices = sorted(iso_indices + [i])
 
-            for j in iso_indices[::-1]:
-                del sub_expr.items[j]
+        if not iso_indices:
+            # TODO modal dialog?
+            print("Nothing to simplify.")
+            return
 
-            new_row = Row(self.main_window, self, "collect", new_graph_expr)
-            self.reference_count += 1
-            self.main_window.add_row(new_row)
-            self.select_single_graph(index_tuple)
+        if multiplicity != 0:
+            sub_expr.items[i] = (graph_w_pos, multiplicity)
+        else:
+            # all copies of this graph cancel out
+            # delete item i altogether by adding it to iso_indices
+            iso_indices = sorted(iso_indices + [i])
+
+        for j in iso_indices[::-1]:
+            del sub_expr.items[j]
+
+        print(f"DEBUG merge_isomorphic: {index_tuple=}")
+
+        new_row = Row(self.main_window, self, "collect", new_graph_expr)
+        self.reference_count += 1
+        self.main_window.add_row(new_row)
+        self.select_single_graph(index_tuple)
 
     def can_separate(self, index_tuple):
         _, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
