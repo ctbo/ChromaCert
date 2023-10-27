@@ -131,6 +131,9 @@ class GraphExpression:
                     widgets.append(QLabel("–"))
                 else:
                     widgets.append(QLabel(f"{multiplicity}" if first else f"{multiplicity:+}"))
+            else:
+                if not first:
+                    widgets.append(QLabel("·"))
 
             if isinstance(item, GraphWithPos):
                 widgets.append(GraphWidget(graph_with_pos=item, row=row, index_tuple=new_index_tuple))
@@ -197,7 +200,10 @@ class GraphExpression:
 
             def latex_helper(terms):
                 result = ""
+                first = True
                 for term, multiplicity in terms:
+                    if not first:
+                        result += r"\cdot "
                     if isinstance(term, GraphExpression) and term.op < self.op:
                         result += r"\left("
                     result += term.to_latex_raw()
@@ -205,6 +211,7 @@ class GraphExpression:
                         result += r"\right)"
                     if multiplicity != 1:
                         result += f"^{{{multiplicity}}}"
+                    first = False
                 return result
 
             numerator = []
