@@ -161,13 +161,13 @@ class GraphExpression:
         if force_op is None or force_op == lens[0].op:
             return lens
         sub_expr, i = lens
-        item = sub_expr.items[i]
-        if len(sub_expr.items) == 1 and item[1] == 1:
+        expr, multiplicity = sub_expr.items[i]
+        if len(sub_expr.items) == 1 and multiplicity == 1:
             # if there's only one item with multiplicity 1 we can simply change the operation type
             sub_expr.op = force_op
             return lens
-        new_sub_expr = GraphExpression(item=item, op=force_op)
-        sub_expr.items[i] = (new_sub_expr, 1)
+        new_sub_expr = GraphExpression(item=(expr, 1), op=force_op)
+        sub_expr.items[i] = (new_sub_expr, multiplicity)
         return (new_sub_expr, 0)
 
     def at_index_tuple(self, index_tuple):
