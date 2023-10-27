@@ -65,6 +65,7 @@ class GraphWithPos:
         # TODO report bug in NetworkX. deepcopy() shouldn't be necessary, positions shouldn't be converted to strings
         return r"\fbox{" + latex + "}"
 
+
 class GraphExpression:
     SUM = 1    # this encodes the type and the precedence level
     PROD = 2
@@ -368,7 +369,6 @@ class Row:
         self.select_single_graph(index_tuple)
 
     def derivation_to_latex_raw(self, is_final=True):
-        result = ""
         if not self.parent_row:
             result = r"\setlength{\fboxsep}{0.3ex}" + "\n"
             result += r"\setlength{\fboxrule}{0pt}" + "\n"
@@ -485,6 +485,11 @@ class GraphWidget(QWidget):
         spring_layout_action = context_menu.addAction("Spring Layout")
         spring_layout_action.triggered.connect(self.option_spring_layout)
 
+        max_clique_action = context_menu.addAction("Find Maximum Clique")
+        max_clique_action.triggered.connect(self.option_max_clique)
+        if not self.row.selecting_allowed():
+            max_clique_action.setEnabled(False)
+
         context_menu.addSeparator()
 
         ai_action = context_menu.addAction("Addition-Identification")
@@ -551,6 +556,10 @@ class GraphWidget(QWidget):
 
     def option_spring_layout(self):
         self.graph_with_pos.pos = nx.spring_layout(self.graph_with_pos.G)
+        self.draw_graph()
+
+    def option_max_clique(self):
+        self.graph_with_pos.selected_nodes = nx.approximation.max_clique(self.graph_with_pos.G)
         self.draw_graph()
 
     def option_ai(self):
