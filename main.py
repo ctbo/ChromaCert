@@ -223,6 +223,20 @@ class GraphExpression:
 
         return result
 
+    def simplify_nesting(self, parent=None, parent_i=None):
+        for i in range(len(self.items)-1, -1, -1):  # iterate backwards in case items get deleted
+            sub_expr, _ = self.items[i]
+            if isinstance(sub_expr, GraphExpression):
+                sub_expr.simplify_nesting(self, i)
+        if len(self.items) > 1 or parent is None:
+            return
+        if not self.items:
+            del parent.items[parent_i]
+        else:
+            expr, multiplicity = self.items[0]
+            if multiplicity == 1:
+                parent.items[parent_i] = expr, multiplicity
+
     def __str__(self):
         t = "SUM" if self.op == self.SUM else "PROD"
         return f"{t}({', '.join('('+str(expr)+', ' + str(multiplicity)+')' for expr, multiplicity in self.items)})"
@@ -415,7 +429,7 @@ class Row:
         for j in iso_indices[::-1]:
             del sub_expr.items[j]
 
-        print(f"DEBUG merge_isomorphic: {index_tuple=}")
+        new_graph_expr.simplify_nesting()
 
         new_row = Row(self.main_window, self, "collect", new_graph_expr)
         self.reference_count += 1
