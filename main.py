@@ -59,11 +59,11 @@ class GraphWithPos:
         for node in self.G.nodes:
             node_options[node] = "selected" if node in self.selected_nodes else "unselected"
             node_labels[node] = ""
-        return nx.to_latex_raw(self.G, pos=deepcopy(self.pos), node_options=node_options,
+        latex = nx.to_latex_raw(self.G, pos=deepcopy(self.pos), node_options=node_options,
             node_label=node_labels,
             tikz_options="show background rectangle,scale=0.8, baseline={([yshift=-0.5ex]current bounding box.center)}")
         # TODO report bug in NetworkX. deepcopy() shouldn't be necessary, positions shouldn't be converted to strings
-
+        return r"\fbox{" + latex + "}"
 
 class GraphExpression:
     SUM = 1    # this encodes the type and the precedence level
@@ -370,7 +370,9 @@ class Row:
     def derivation_to_latex_raw(self, is_final=True):
         result = ""
         if not self.parent_row:
-            result = r"\[\begin{array}{r@{\quad}c@{\quad}l}" + "\n"
+            result = r"\setlength{\fboxsep}{0.3ex}" + "\n"
+            result += r"\setlength{\fboxrule}{0pt}" + "\n"
+            result += r"\[\begin{array}{r@{\quad}c@{\quad}l}" + "\n"
             result += self.graph_expr.to_latex_raw() + "\n"
         else:
             result = self.parent_row.derivation_to_latex_raw(is_final=False)
