@@ -28,13 +28,13 @@ class RowLabel(QLabel):
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
 
-        test_action = context_menu.addAction("Test")
-        test_action.triggered.connect(self.on_test_action)
+        latex_action = context_menu.addAction("Export as LaTeX")
+        latex_action.triggered.connect(self.on_latex_action)
 
         # Display the context menu
         context_menu.exec(event.globalPos())
 
-    def on_test_action(self):
+    def on_latex_action(self):
         print(self.row.derivation_to_latex_raw())
 
 
@@ -372,7 +372,7 @@ class Row:
             result = self.parent_row.derivation_to_latex_raw(is_final=False)
             result += f"& \\stackrel{{\\text{{{self.explanation}}}}}{{=}} &\n {self.graph_expr.to_latex_raw()} \\\\\n"
         if is_final:
-            result += "\\end{array}\n\\]\n"
+            result += "\\end{array}\\]\n"
         return result
 
 
