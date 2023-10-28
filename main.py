@@ -73,10 +73,10 @@ class OpLabel(QLabel):
         context_menu.exec(event.globalPos())
 
     def on_flip(self):
-        print(f"flip {self.index_tuple=}")
+        self.row.flip(self.index_tuple)
 
     def on_debug(self):
-        pass
+        print(f"DEBUG: {self.op=} {self.index_tuple=}")
 
 
 class GraphWithPos:
@@ -500,6 +500,19 @@ class Row:
         self.reference_count += 1
         self.main_window.add_row(new_row)
         self.select_single_graph(index_tuple)
+
+    def flip(self, index_tuple):
+        new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
+
+        assert i > 0
+        sub_expr.items[i-1], sub_expr.items[i] = sub_expr.items[i], sub_expr.items[i-1]
+
+        new_row = Row(self.main_window, self, "flip", new_graph_expr)
+        self.reference_count += 1
+        self.main_window.add_row(new_row)
+        self.deselect_all_except(())
 
     def derivation_to_latex_raw(self, is_final=True):
         if not self.parent_row:
