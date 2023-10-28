@@ -17,9 +17,9 @@ from matplotlib.backends.backend_qt5agg import (
 )
 
 # configure multiplication symbol according to taste
-TIMES_SYMBOL = "·"
+# TIMES_SYMBOL = "·"
 TIMES_SYMBOL_LATEX = r"\cdot"
-# TIMES_SYMBOL = "×"
+TIMES_SYMBOL = "×"
 # TIMES_SYMBOL_LATEX = r"\times"
 
 
@@ -48,6 +48,35 @@ class RowLabel(QLabel):
 
     def on_debug(self):
         print(self.row.graph_expr)
+
+
+class OpLabel(QLabel):
+    def __init__(self, op, row, index_tuple, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.op = op
+        self.row = row
+        self.index_tuple = index_tuple
+
+    def contextMenuEvent(self, event):
+        context_menu = QMenu(self)
+
+        if self.op in {GraphExpression.SUM, GraphExpression.PROD}:
+            flip_action = context_menu.addAction("Flip")
+            flip_action.triggered.connect(self.on_flip)
+            if self.index_tuple[-1] == 0:
+                flip_action.setEnabled(False)  # can't flip at a leading minus or factor
+        else:
+            debug_action = context_menu.addAction("DEBUG")
+            debug_action.triggered.connect(self.on_debug)
+
+        # Display the context menu
+        context_menu.exec(event.globalPos())
+
+    def on_flip(self):
+        print(f"flip {self.index_tuple=}")
+
+    def on_debug(self):
+        pass
 
 
 class GraphWithPos:
@@ -92,6 +121,9 @@ class GraphWithPos:
 class GraphExpression:
     SUM = 1    # this encodes the type and the precedence level
     PROD = 2
+    # TODO the following isn't really clean design and should probably be refactored
+    LPAREN = 10  # this is used as an operation type for an OpLabel only
+    RPAREN = 11  # this is used as an operation type for an OpLabel only
 
     def __init__(self, graph_w_pos=None, item=None, op=SUM):
         self.op = op
@@ -132,24 +164,25 @@ class GraphExpression:
             if self.op == self.SUM:
                 if multiplicity == 1:
                     if not first:
-                        widgets.append(QLabel("+"))
+                        widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple, "+"))
                 elif multiplicity == -1:
-                    widgets.append(QLabel("–"))
+                    widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple, "-"))
                 else:
-                    widgets.append(QLabel(f"{multiplicity}" if first else f"{multiplicity:+}"))
+                    widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple,
+                                           f"{multiplicity}" if first else f"{multiplicity:+}"))
             else:
                 if not first:
-                    widgets.append(QLabel(TIMES_SYMBOL))
+                    widgets.append(OpLabel(GraphExpression.PROD, row, new_index_tuple, TIMES_SYMBOL))
 
             if isinstance(item, GraphWithPos):
                 widgets.append(GraphWidget(graph_with_pos=item, row=row, index_tuple=new_index_tuple))
             else:
                 assert isinstance(item, GraphExpression)
                 if item.op < self.op:
-                    widgets.append(QLabel("("))
+                    widgets.append(OpLabel(GraphExpression.LPAREN, row, new_index_tuple, "("))
                 widgets += item.create_widgets(row, new_index_tuple)
                 if item.op < self.op:
-                    widgets.append(QLabel(")"))
+                    widgets.append(OpLabel(GraphExpression.RPAREN, row, new_index_tuple, ")"))
 
             if self.op == self.PROD and multiplicity != 1:
                 widgets.append(QLabel(f"^{multiplicity}"))
