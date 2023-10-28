@@ -283,6 +283,19 @@ class GraphExpression:
             if multiplicity == 1:
                 parent.items[parent_i] = expr, multiplicity
 
+    def graph_list(self):
+        """
+        :return: a flat list of all GraphWithPos objects in this expression
+        """
+        result = []
+        for expr, _ in self.items:
+            if isinstance(expr, GraphWithPos):
+                result.append(expr)
+            else:
+                assert isinstance(expr, GraphExpression)
+                result += expr.graph_list()
+        return result
+
     def __str__(self):
         t = "SUM" if self.op == self.SUM else "PROD"
         return f"{t}({', '.join('('+str(expr)+', ' + str(multiplicity)+')' for expr, multiplicity in self.items)})"
@@ -518,6 +531,23 @@ class Row:
         self.main_window.add_row(new_row)
         self.deselect_all_except(())
 
+    def insert_neutral(self, index_tuple, graph_w_pos: GraphWithPos):
+        g1 = deepcopy(graph_w_pos)
+        g1.deselect_all()
+        g2 = deepcopy(g1)
+
+        new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
+
+        sub_expr.insert(g2, -1, at_index=i)
+        sub_expr.insert(g1, 1, at_index=i)
+
+        new_row = Row(self.main_window, self, "insert", new_graph_expr)
+        self.reference_count += 1
+        self.main_window.add_row(new_row)
+        self.select_single_graph(index_tuple)
+
     def derivation_to_latex_raw(self, is_final=True):
         if not self.parent_row:
             result = r"\setlength{\fboxsep}{0.3ex}" + "\n"
@@ -584,7 +614,7 @@ class GraphWidget(QWidget):
 
         # Check if a node was clicked
         nodes = list(self.graph_with_pos.G.nodes())
-        if nodes:
+        if nodes and event.xdata is not None and event.ydata is not None:
             data = [self.graph_with_pos.pos[node] for node in nodes]
             data_x, data_y = zip(*data)
             distances = np.sqrt((data_x - event.xdata)**2 + (data_y - event.ydata)**2)
@@ -672,6 +702,20 @@ class GraphWidget(QWidget):
         copy_action = context_menu.addAction("Copy as new Row")
         copy_action.triggered.connect(self.option_copy)
 
+        insert_neutral_submenu = context_menu.addMenu("Insert Neutral")
+        singles = self.row.main_window.single_graphs_from_rows()
+        if singles:
+            sub_expr, i = self.row.graph_expr.index_tuple_lens(self.index_tuple)
+            for row_index, graph_w_pos in singles:
+                if sub_expr.op == GraphExpression.SUM:
+                    text = f"+ ({row_index+1}) – ({row_index+1})"
+                else:
+                    text = f"{TIMES_SYMBOL} ({row_index+1}) / ({row_index+1})"
+                sub_action = insert_neutral_submenu.addAction(text)
+                sub_action.triggered.connect(lambda checked, g=graph_w_pos: self.option_insert_neutral(g))
+        else:
+            insert_neutral_submenu.setEnabled(False)
+
         test_action = context_menu.addAction("Test")
         test_action.triggered.connect(self.option_test)
 
@@ -743,6 +787,9 @@ class GraphWidget(QWidget):
         new_graph_w_pos.deselect_all()
         self.row.main_window.new_graph_row(graph_w_pos=new_graph_w_pos)
 
+    def option_insert_neutral(self, graph_w_pos):
+        self.row.insert_neutral(self.index_tuple, graph_w_pos)
+
     def option_test(self):
         print(nx.chromatic_polynomial(self.graph_with_pos.G))
 
@@ -804,6 +851,17 @@ class MainWindow(QMainWindow):
             row = Row(self, None, None, GraphExpression(GraphWithPos(graph)))
         self.add_row(row)
 
+    def single_graphs_from_rows(self):
+        """
+        Find all rows containing a single graph.
+        :return: a list of tuples (row_index, graph_w_pos)
+        """
+        result = []
+        for row in self.rows:
+            l = row.graph_expr.graph_list()
+            if len(l) == 1:
+                result.append((row.row_index, l[0]))
+        return result
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
