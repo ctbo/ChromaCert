@@ -191,7 +191,7 @@ class GraphExpression:
 
     def index_tuple_lens(self, index_tuple, force_op=None):
         """
-        :param index_tuple:
+        :param index_tuple: the index tuple to focus on
         :param force_op: if not None, modify expression so that it is of type `force_op` if it isn't already
         :return: a "lens" consisting of a GraphExpression and an index
         """
@@ -288,11 +288,15 @@ class GraphExpression:
         return f"{t}({', '.join('('+str(expr)+', ' + str(multiplicity)+')' for expr, multiplicity in self.items)})"
 
 class Row:
-    def __init__(self, main_window, parent_row, explanation, graph_expr: GraphExpression):
+    def __init__(self, main_window, parent_row, explanation, graph_expr: GraphExpression, latex_explanation=None):
         self.main_window = main_window
         self.row_index = -1
         self.parent_row = parent_row
         self.explanation = explanation
+        if latex_explanation is None:
+            self.latex_explanation = f"\\text{{{explanation}}}"
+        else:
+            self.latex_explanation = latex_explanation
         self.graph_expr = graph_expr
         self.reference_count = 0  # TODO rows that are referenced by other rows shouldn't be edited
 
@@ -522,7 +526,7 @@ class Row:
             result += self.graph_expr.to_latex_raw() + "\n"
         else:
             result = self.parent_row.derivation_to_latex_raw(is_final=False)
-            result += f"& \\stackrel{{\\text{{{self.explanation}}}}}{{=}} &\n {self.graph_expr.to_latex_raw()} \\\\\n"
+            result += f"& \\stackrel{{{self.latex_explanation}}}{{=}} &\n {self.graph_expr.to_latex_raw()} \\\\\n"
         if is_final:
             result += "\\end{array}\\]\n"
         return result
