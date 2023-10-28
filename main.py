@@ -665,6 +665,9 @@ class GraphWidget(QWidget):
         if not self.row.can_separate(self.index_tuple) or not self.row.selecting_allowed():
             separate_action.setEnabled(False)
 
+        copy_action = context_menu.addAction("Copy as new Row")
+        copy_action.triggered.connect(self.option_copy)
+
         test_action = context_menu.addAction("Test")
         test_action.triggered.connect(self.option_test)
 
@@ -731,6 +734,11 @@ class GraphWidget(QWidget):
     def option_separate(self):
         self.row.do_separate(self.index_tuple)
 
+    def option_copy(self):
+        new_graph_w_pos = deepcopy(self.graph_with_pos)
+        new_graph_w_pos.deselect_all()
+        self.row.main_window.new_graph_row(graph_w_pos=new_graph_w_pos)
+
     def option_test(self):
         print(nx.chromatic_polynomial(self.graph_with_pos.G))
 
@@ -785,8 +793,11 @@ class MainWindow(QMainWindow):
         self.layout.addLayout(row.layout)
         self.rows.append(row)
 
-    def new_graph_row(self, graph=None):
-        row = Row(self, None, None, GraphExpression(GraphWithPos(graph)))
+    def new_graph_row(self, graph=None, graph_w_pos=None):
+        if graph_w_pos is not None:
+            row = Row(self, None, None, GraphExpression(graph_w_pos))
+        else:
+            row = Row(self, None, None, GraphExpression(GraphWithPos(graph)))
         self.add_row(row)
 
 
