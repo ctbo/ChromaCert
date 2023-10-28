@@ -16,6 +16,12 @@ from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas
 )
 
+# configure multiplication symbol according to taste
+TIMES_SYMBOL = "·"
+TIMES_SYMBOL_LATEX = r"\cdot"
+# TIMES_SYMBOL = "×"
+# TIMES_SYMBOL_LATEX = r"\times"
+
 
 class RowLabel(QLabel):
     def __init__(self, row=None, *args, **kwargs):
@@ -133,7 +139,7 @@ class GraphExpression:
                     widgets.append(QLabel(f"{multiplicity}" if first else f"{multiplicity:+}"))
             else:
                 if not first:
-                    widgets.append(QLabel("·"))
+                    widgets.append(QLabel(TIMES_SYMBOL))
 
             if isinstance(item, GraphWithPos):
                 widgets.append(GraphWidget(graph_with_pos=item, row=row, index_tuple=new_index_tuple))
@@ -203,7 +209,7 @@ class GraphExpression:
                 first = True
                 for term, multiplicity in terms:
                     if not first:
-                        result += r"\cdot "
+                        result += f"{TIMES_SYMBOL_LATEX} "
                     if isinstance(term, GraphExpression) and term.op < self.op:
                         result += r"\left("
                     result += term.to_latex_raw()
