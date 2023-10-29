@@ -1,5 +1,8 @@
 # ChromaCert (c) 2023 by Harald Bögeholz
 
+from __future__ import annotations
+from typing import Tuple
+
 import sys
 from copy import deepcopy
 
@@ -195,7 +198,7 @@ class GraphExpression:
             first = False
         return widgets
 
-    def index_tuple_lens(self, index_tuple, force_op=None):
+    def index_tuple_lens(self, index_tuple, force_op=None) -> Tuple[GraphExpression, int]:
         """
         :param index_tuple: the index tuple to focus on
         :param force_op: if not None, modify expression so that it is of type `force_op` if it isn't already
@@ -453,6 +456,75 @@ class Row:
         self.main_window.add_row(new_row)
         self.deselect_all_except(index_tuple)
 
+    def can_clique_join(self, index_tuple):
+        sel = self.selected_vertices()
+        if len(sel) != 2:
+            return False
+        (index_tuple1, selected1), (index_tuple2, selected2) = sel
+        if index_tuple not in (index_tuple1, index_tuple2):
+            return False
+        if len(selected1) != len(selected2):
+            return False
+        expr1, i1 = self.graph_expr.index_tuple_lens(index_tuple1)
+        expr2, i2 = self.graph_expr.index_tuple_lens(index_tuple2)
+        if expr1 != expr2:
+            return False
+        graph_w_pos1, multiplicity1 = expr1.items[i1]
+        graph_w_pos2, multiplicity2 = expr1.items[i2]
+        if not (multiplicity1 == multiplicity2 and abs(multiplicity1) == 1):
+            return False
+        if not (graph_w_pos1.selection_is_clique() and graph_w_pos2.selection_is_clique()):
+            return False
+        return expr1.op == GraphExpression.PROD
+
+    def do_clique_join(self, index_tuple):
+        new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
+
+        sel = self.selected_vertices()
+        assert len(sel) == 2
+        (index_tuple1, selected1), (index_tuple2, selected2) = sel
+        assert index_tuple in (index_tuple1, index_tuple2)
+        assert len(selected1) == len(selected2)
+        expr1, i1 = new_graph_expr.index_tuple_lens(index_tuple1)
+        expr2, i2 = new_graph_expr.index_tuple_lens(index_tuple2)
+        assert expr1 == expr2
+        if index_tuple == index_tuple2:
+            i1, i2 = i2, i1
+            selected1, selected2 = selected2, selected1
+        graph_w_pos1, multiplicity1 = expr1.items[i1]
+        graph_w_pos2, multiplicity2 = expr1.items[i2]
+        assert multiplicity1 == multiplicity2 and abs(multiplicity1) == 1
+        assert graph_w_pos1.selection_is_clique() and graph_w_pos2.selection_is_clique()
+        assert expr1.op == GraphExpression.PROD
+
+        # Glue graphs together at cliques
+
+        g1 = graph_w_pos1.G
+        g2 = graph_w_pos2.G
+        # sort cliques by y coordinate to match them visually
+        clique1 = sorted(selected1, key=lambda node: graph_w_pos1.pos[node][1])
+        clique2 = sorted(selected2, key=lambda node: graph_w_pos2.pos[node][1])
+
+        # create mapping to relabel g2 to be disjoint from g1
+        max_g1_node = max(g1.nodes)
+        mapping_g2 = {node: (node+max_g1_node+1) for node in g2.nodes}
+
+        # Override the mapping for clique2 nodes to match clique1
+        for node_c1, node_c2 in zip(clique1, clique2):
+            mapping_g2[node_c2] = node_c1
+
+        relabeled_g2 = nx.relabel_nodes(g2, mapping_g2)
+        glued_graph = nx.compose(g1, relabeled_g2)
+
+        expr1.items[i1] = GraphWithPos(glued_graph), multiplicity1
+        del expr1.items[i2]
+        expr1.insert(GraphWithPos(nx.complete_graph(len(clique1))), multiplicity1)
+
+        new_row = Row(self.main_window, self, "glue", new_graph_expr)
+        self.reference_count += 1
+        self.main_window.add_row(new_row)
+
     def select_single_graph(self, index_tuple):
         for j in range(self.layout.count()):
             item = self.layout.itemAt(j)
@@ -697,10 +769,15 @@ class GraphWidget(QWidget):
         if not self.row.can_delete_contract(self.index_tuple) or not self.row.selecting_allowed():
             dc_action.setEnabled(False)
 
-        clique_sep_action = context_menu.addAction("Separate by Clique")
+        clique_sep_action = context_menu.addAction("Separate at Clique")
         clique_sep_action.triggered.connect(self.option_clique_sep)
         if not self.row.can_clique_sep(self.index_tuple) or not self.row.selecting_allowed():
             clique_sep_action.setEnabled(False)
+
+        clique_join_action = context_menu.addAction("Glue at Clique")
+        clique_join_action.triggered.connect(self.option_clique_join)
+        if not self.row.can_clique_join(self.index_tuple):  # this operation doesn't change selection, no check req'd
+            clique_join_action.setEnabled(False)
 
         context_menu.addSeparator()
 
@@ -790,6 +867,9 @@ class GraphWidget(QWidget):
 
     def option_clique_sep(self):
         self.row.do_clique_sep(self.index_tuple)
+
+    def option_clique_join(self):
+        self.row.do_clique_join(self.index_tuple)
 
     def option_merge_isomorphic(self):
         self.row.merge_isomorphic(self.index_tuple)
