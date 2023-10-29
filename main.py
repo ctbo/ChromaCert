@@ -6,6 +6,7 @@ from typing import Tuple
 import sys
 from copy import deepcopy
 import math
+import itertools
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -987,7 +988,7 @@ class MainWindow(QMainWindow):
             new_action_complete = new_submenu_complete.addAction(f"K_{i}")
             new_action_complete.triggered.connect(lambda checked, ii=i: self.new_graph_row(nx.complete_graph(ii)))
         new_submenu_wheel = new_menu.addMenu("Wheel")
-        for i in range(3, 12):
+        for i in itertools.chain(range(3, 7), range(7, 20, 2)):
             new_action_wheel = new_submenu_wheel.addAction(f"W_{i}")
             new_action_wheel.triggered.connect(lambda checked, ii=i: self.new_graph_row(nx.wheel_graph(ii+1)))
         new_submenu_bipartite = new_menu.addMenu("Bipartite")
