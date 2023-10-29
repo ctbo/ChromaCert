@@ -145,7 +145,7 @@ class GraphExpression:
             assert isinstance(graph_w_pos, GraphWithPos)
             self.items = [(graph_w_pos, 1)]
 
-    def insert(self, graph_expr, multiplicity_delta, at_index=None):
+    def insert(self, graph_expr, multiplicity_delta, at_index=None, in_front=False):
         if at_index is None:
             for i in range(len(self.items)):
                 item, multiplicity = self.items[i]
@@ -158,9 +158,12 @@ class GraphExpression:
                     return
         if multiplicity_delta != 0:
             if at_index is None:
-                self.items.append((graph_expr, multiplicity_delta))
+                if in_front:
+                    self.items.insert(0, (deepcopy(graph_expr), multiplicity_delta))
+                else:
+                    self.items.append((deepcopy(graph_expr), multiplicity_delta))
             else:
-                self.items.insert(at_index, (graph_expr, multiplicity_delta))
+                self.items.insert(at_index, (deepcopy(graph_expr), multiplicity_delta))
 
     def create_widgets(self, row, index_tuple=()):
         if not self.items:
@@ -627,6 +630,40 @@ class Row:
         self.main_window.add_row(new_row)
         self.select_single_graph(index_tuple)
 
+    def can_distribute_right(self, index_tuple):
+        expr, i = self.graph_expr.index_tuple_lens(index_tuple)
+        if expr.op != GraphExpression.PROD:
+            return False
+        term_expr, term_multiplicity = expr.items[i]
+        for j in range(i+1, len(expr.items)):
+            sum_expr, sum_multiplicity = expr.items[j]
+            if isinstance(sum_expr, GraphExpression) and sum_expr.op == GraphExpression.SUM:
+                return sum_multiplicity % term_multiplicity == 0
+        return False
+
+    def do_distribute_right(self, index_tuple):
+        new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
+
+        expr, i = new_graph_expr.index_tuple_lens(index_tuple)
+        assert expr.op == GraphExpression.PROD
+        term_expr, term_multiplicity = expr.items[i]
+        for j in range(i+1, len(expr.items)):
+            sum_expr, sum_multiplicity = expr.items[j]
+            if isinstance(sum_expr, GraphExpression) and sum_expr.op == GraphExpression.SUM:
+                assert sum_multiplicity % term_multiplicity == 0
+                multiplicity_delta = sum_multiplicity // term_multiplicity
+                for k in range(len(sum_expr.items)):
+                    summand_expr, _ = sum_expr.index_tuple_lens((k,), force_op=GraphExpression.PROD)
+                    summand_expr.insert(term_expr, multiplicity_delta, in_front=True)
+                del expr.items[i]
+                break
+
+        new_row = Row(self.main_window, self, "distribute", new_graph_expr)
+        self.reference_count += 1
+        self.main_window.add_row(new_row)
+        self.select_single_graph(index_tuple)
+
     def copy_as_new_row(self):
         new_graph_expr = deepcopy(self.graph_expr)
         new_graph_expr.deselect_all()
@@ -817,6 +854,11 @@ class GraphWidget(QWidget):
         else:
             insert_neutral_submenu.setEnabled(False)
 
+        distribute_right_action = context_menu.addAction("Distribute Right")
+        distribute_right_action.triggered.connect(self.option_distribute_right)
+        if not self.row.can_distribute_right(self.index_tuple) or not self.row.selecting_allowed():
+            distribute_right_action.setEnabled(False)
+
         test_action = context_menu.addAction("Test")
         test_action.triggered.connect(self.option_test)
 
@@ -893,6 +935,9 @@ class GraphWidget(QWidget):
 
     def option_insert_neutral(self, graph_w_pos):
         self.row.insert_neutral(self.index_tuple, graph_w_pos)
+
+    def option_distribute_right(self):
+        self.row.do_distribute_right(self.index_tuple)
 
     def option_test(self):
         print(nx.chromatic_polynomial(self.graph_with_pos.G))
