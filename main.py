@@ -112,7 +112,7 @@ class GraphWithPos:
             node_labels[node] = ""
         latex = nx.to_latex_raw(self.G, pos=deepcopy(self.pos), node_options=node_options,
             node_label=node_labels,
-            tikz_options="show background rectangle,scale=0.8, baseline={([yshift=-0.5ex]current bounding box.center)}")
+            tikz_options="show background rectangle,scale=0.6, baseline={([yshift=-0.5ex]current bounding box.center)}")
         # TODO report bug in NetworkX. deepcopy() shouldn't be necessary, positions shouldn't be converted to strings
         return r"\fbox{" + latex + "}"
 
@@ -675,15 +675,22 @@ class Row:
 
     def derivation_to_latex_raw(self, is_final=True):
         if not self.parent_row:
-            result = r"\setlength{\fboxsep}{0.3ex}" + "\n"
-            result += r"\setlength{\fboxrule}{0pt}" + "\n"
-            result += r"\[\begin{array}{r@{\quad}c@{\quad}l}" + "\n"
+            result = r"""
+\tikzset{%
+    unselected/.style={circle,fill=blue,minimum size=1.5mm,inner sep=0pt},
+    selected/.style={circle,fill=red,minimum size=1.5mm,inner sep=0pt},
+    background rectangle/.style={fill=cyan!15},
+}
+\setlength{\fboxsep}{0.3ex}
+\setlength{\fboxrule}{0pt}
+\begin{align*}
+"""
             result += self.graph_expr.to_latex_raw() + "\n"
         else:
             result = self.parent_row.derivation_to_latex_raw(is_final=False)
-            result += f"& \\stackrel{{{self.latex_explanation}}}{{=}} &\n {self.graph_expr.to_latex_raw()} \\\\\n"
+            result += f"&= {self.graph_expr.to_latex_raw()} && [{self.latex_explanation}] \\\\\n"
         if is_final:
-            result += "\\end{array}\\]\n"
+            result += r"\end{align*}" + "\n"
         return result
 
 
