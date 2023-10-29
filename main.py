@@ -674,17 +674,17 @@ class GraphWidget(QWidget):
 
         ai_action = context_menu.addAction("Addition-Identification")
         ai_action.triggered.connect(self.option_ai)
-        if not self.row.can_add_identify(self.index_tuple):
+        if not self.row.can_add_identify(self.index_tuple) or not self.row.selecting_allowed():
             ai_action.setEnabled(False)
 
         dc_action = context_menu.addAction("Deletion-Contraction")
         dc_action.triggered.connect(self.option_dc)
-        if not self.row.can_delete_contract(self.index_tuple):
+        if not self.row.can_delete_contract(self.index_tuple) or not self.row.selecting_allowed():
             dc_action.setEnabled(False)
 
         clique_sep_action = context_menu.addAction("Separate by Clique")
         clique_sep_action.triggered.connect(self.option_clique_sep)
-        if not self.row.can_clique_sep(self.index_tuple):
+        if not self.row.can_clique_sep(self.index_tuple) or not self.row.selecting_allowed():
             clique_sep_action.setEnabled(False)
 
         context_menu.addSeparator()
@@ -704,7 +704,7 @@ class GraphWidget(QWidget):
 
         insert_neutral_submenu = context_menu.addMenu("Insert Neutral")
         singles = self.row.main_window.single_graphs_from_rows()
-        if singles:
+        if singles and self.row.selecting_allowed():
             sub_expr, i = self.row.graph_expr.index_tuple_lens(self.index_tuple)
             for row_index, graph_w_pos in singles:
                 if sub_expr.op == GraphExpression.SUM:
