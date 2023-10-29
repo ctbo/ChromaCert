@@ -5,6 +5,7 @@ from typing import Tuple
 
 import sys
 from copy import deepcopy
+import math
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -661,6 +662,8 @@ class GraphWidget(QWidget):
         else:
             self.graph_with_pos = graph_with_pos
         self.dragging = False  # Flag to check if we are dragging a vertex
+        self.dragging_ydata = None
+        self.dragging_xdata = None
         self.dragged_node = None  # Store the node being dragged
         self.drag_occurred = False  # Flag to check if a drag action took place
 
@@ -700,7 +703,7 @@ class GraphWidget(QWidget):
             return
 
         # Check if a node was clicked
-        nodes = list(self.graph_with_pos.G.nodes())
+        nodes = list(self.graph_with_pos.G.nodes)
         if nodes and event.xdata is not None and event.ydata is not None:
             data = [self.graph_with_pos.pos[node] for node in nodes]
             data_x, data_y = zip(*data)
@@ -710,11 +713,17 @@ class GraphWidget(QWidget):
             if min(distances) < 0.1:  # adjust this threshold if necessary
                 i = np.argmin(distances)
                 self.dragging = True
+                self.dragging_xdata = event.xdata
+                self.dragging_ydata = event.ydata
                 self.dragged_node = nodes[i]
+                # print(f"on_press: {event.xdata=}, {event.ydata=}, {self.dragged_node=}")
 
     def on_motion(self, event):
         if self.dragging and self.dragged_node is not None and event.xdata is not None and event.ydata is not None:
-            self.drag_occurred = True
+            distance_dragged = math.sqrt((self.dragging_xdata-event.xdata)**2 + (self.dragging_ydata-event.ydata)**2)
+            # print(f"on_motion: {event.xdata=}, {event.ydata=}, {distance_dragged=}, {self.dragged_node=}")
+            if distance_dragged > 0.02:
+                self.drag_occurred = True
             self.graph_with_pos.pos[self.dragged_node] = (event.xdata, event.ydata)
             self.draw_graph()
 
