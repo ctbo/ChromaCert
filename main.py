@@ -34,6 +34,9 @@ class RowLabel(QLabel):
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
 
+        copy_action = context_menu.addAction("Copy as new Row")
+        copy_action.triggered.connect(self.on_copy)
+
         latex_action = context_menu.addAction("Export as LaTeX")
         latex_action.triggered.connect(self.on_latex)
 
@@ -42,6 +45,9 @@ class RowLabel(QLabel):
 
         # Display the context menu
         context_menu.exec(event.globalPos())
+
+    def on_copy(self):
+        self.row.copy_as_new_row()
 
     def on_latex(self):
         print(self.row.derivation_to_latex_raw())
@@ -548,6 +554,15 @@ class Row:
         self.main_window.add_row(new_row)
         self.select_single_graph(index_tuple)
 
+    def copy_as_new_row(self):
+        new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
+        new_row = Row(self.main_window, self.parent_row, self.explanation, new_graph_expr, self.latex_explanation)
+        if self.parent_row:
+            self.parent_row.reference_count += 1
+        if __name__ == '__main__':
+            self.main_window.add_row(new_row)
+
     def derivation_to_latex_raw(self, is_final=True):
         if not self.parent_row:
             result = r"\setlength{\fboxsep}{0.3ex}" + "\n"
@@ -829,7 +844,7 @@ class MainWindow(QMainWindow):
             new_action_complete = new_submenu_complete.addAction(f"K_{i}")
             new_action_complete.triggered.connect(lambda checked, ii=i: self.new_graph_row(nx.complete_graph(ii)))
         new_submenu_wheel = new_menu.addMenu("Wheel")
-        for i in range(3, 11):
+        for i in range(3, 12):
             new_action_wheel = new_submenu_wheel.addAction(f"W_{i}")
             new_action_wheel.triggered.connect(lambda checked, ii=i: self.new_graph_row(nx.wheel_graph(ii+1)))
         new_submenu_bipartite = new_menu.addMenu("Bipartite")
