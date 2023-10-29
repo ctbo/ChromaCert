@@ -837,9 +837,6 @@ class GraphWidget(QWidget):
         if not self.row.can_separate(self.index_tuple) or not self.row.selecting_allowed():
             separate_action.setEnabled(False)
 
-        copy_action = context_menu.addAction("Copy as new Row")
-        copy_action.triggered.connect(self.option_copy)
-
         insert_neutral_submenu = context_menu.addMenu("Insert Neutral")
         singles = self.row.main_window.single_graphs_from_rows()
         if singles and self.row.selecting_allowed():
@@ -858,6 +855,11 @@ class GraphWidget(QWidget):
         distribute_right_action.triggered.connect(self.option_distribute_right)
         if not self.row.can_distribute_right(self.index_tuple) or not self.row.selecting_allowed():
             distribute_right_action.setEnabled(False)
+
+        context_menu.addSeparator()
+
+        copy_action = context_menu.addAction("Copy as new Row")
+        copy_action.triggered.connect(self.option_copy)
 
         test_action = context_menu.addAction("Test")
         test_action.triggered.connect(self.option_test)
