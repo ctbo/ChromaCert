@@ -1,5 +1,7 @@
 # ChromaCert (c) 2023 by Harald Bögeholz
 
+# This software provided under an MIT license. See the file LICENSE for details.
+
 from __future__ import annotations
 from typing import Tuple
 
