@@ -1,4 +1,4 @@
-# ChromaCert – Certificates for Chromatic Polynomial Equivalence
+# ChromaCert – Certificates for Chromatic Equivalence
 
 (c) 2023 by Harald Bögeholz
 
