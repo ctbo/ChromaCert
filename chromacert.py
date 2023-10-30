@@ -14,10 +14,10 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget, QAction
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QHBoxLayout
-from PyQt5.QtWidgets import QMenu
+from PyQt5.QtWidgets import QMenu, QActionGroup
 
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas
@@ -351,6 +351,13 @@ class Row:
         if self.explanation:
             label_text += f" [{self.explanation}]"
         self.row_label.setText(label_text)
+
+    def set_graph_size(self, size):
+        for i in range(self.layout.count()):
+            item = self.layout.itemAt(i)
+            widget = item.widget()
+            if widget and isinstance(widget, GraphWidget):
+                widget.setFixedSize(size, size)
 
     def selecting_allowed(self):
         return self.reference_count == 0
@@ -698,9 +705,11 @@ class Row:
 
 
 class GraphWidget(QWidget):
+    size = 200
+
     def __init__(self, graph_with_pos=None, row=None, index_tuple=None):
         super().__init__()
-        self.setFixedSize(200, 200)  # Set a fixed size for each graph widget
+        self.setFixedSize(self.size, self.size)
 
         self.row = row
         self.index_tuple = index_tuple
@@ -1000,6 +1009,20 @@ class MainWindow(QMainWindow):
                 new_action_bipartite.triggered.connect(lambda checked, ii=i, jj=j:
                                                        self.new_graph_row(nx.complete_multipartite_graph(ii, jj)))
 
+        view_menu = menu_bar.addMenu("View")
+        self.size_action_group = QActionGroup(self)
+        sizes = [("Small", 150), ("Normal", 200), ("Large", 260), ("Extra Large", 350), ("Even Larger", 500)]
+
+        for text, size in sizes:
+            action = QAction(f"{text} Graphs", self, checkable=True)
+            view_menu.addAction(action)
+            action.triggered.connect(lambda checked, s=size: self.set_graph_size(s))
+            self.size_action_group.addAction(action)
+
+        default_size_i = 1  # Medium is the default
+        self.size_action_group.actions()[1].setChecked(True)
+        GraphWidget.size = sizes[default_size_i][1]
+
     def add_row(self, row: Row):
         row.set_row_index(len(self.rows))
         self.layout.addLayout(row.layout)
@@ -1011,6 +1034,11 @@ class MainWindow(QMainWindow):
         else:
             row = Row(self, None, None, GraphExpression(GraphWithPos(graph)))
         self.add_row(row)
+
+    def set_graph_size(self, size):
+        GraphWidget.size = size
+        for row in self.rows:
+            row.set_graph_size(size)
 
     def single_graphs_from_rows(self):
         """
