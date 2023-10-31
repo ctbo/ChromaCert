@@ -14,7 +14,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget, QAction
+from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QHBoxLayout
 from PyQt5.QtWidgets import QMenu, QActionGroup
@@ -64,11 +64,21 @@ class RowLabel(QLabel):
 
 
 class OpLabel(QLabel):
-    def __init__(self, op, row, index_tuple, *args, **kwargs):
+    def __init__(self, op, row, index_tuple, optional, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.op = op
         self.row = row
         self.index_tuple = index_tuple
+        self.optional = optional
+        if optional and not row.main_window.showing_structure():
+            self.hide()
+
+    def show_optional(self, show):
+        if self.optional:
+            if show:
+                self.show()
+            else:
+                self.hide()
 
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
@@ -172,7 +182,8 @@ class GraphExpression:
                 self.items.insert(at_index, (deepcopy(graph_expr), multiplicity_delta))
 
     def create_widgets(self, row, index_tuple=()):
-        widgets = [OpLabel(self.LPAREN, row, index_tuple, self.open_parens[self.op])]
+        outer_optional = index_tuple == () or self.op == self.PROD
+        widgets = [OpLabel(self.LPAREN, row, index_tuple, outer_optional, self.open_parens[self.op])]
 
         first = True
         for i in range(len(self.items)):
@@ -182,15 +193,15 @@ class GraphExpression:
             if self.op == self.SUM:
                 if multiplicity == 1:
                     if not first:
-                        widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple, "+"))
+                        widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple, False, "+"))
                 elif multiplicity == -1:
-                    widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple, "-"))
+                    widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple, False, "-"))
                 else:
-                    widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple,
+                    widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple, False,
                                            f"{multiplicity}" if first else f"{multiplicity:+}"))
             else:
                 if not first:
-                    widgets.append(OpLabel(GraphExpression.PROD, row, new_index_tuple, TIMES_SYMBOL))
+                    widgets.append(OpLabel(GraphExpression.PROD, row, new_index_tuple, False, TIMES_SYMBOL))
 
             if isinstance(item, GraphWithPos):
                 widgets.append(GraphWidget(graph_with_pos=item, row=row, index_tuple=new_index_tuple))
@@ -202,7 +213,7 @@ class GraphExpression:
                 widgets.append(QLabel(f"^{multiplicity}"))
             first = False
 
-        widgets.append(OpLabel(self.LPAREN, row, index_tuple, self.close_parens[self.op]))
+        widgets.append(OpLabel(self.LPAREN, row, index_tuple, outer_optional, self.close_parens[self.op]))
 
         return widgets
 
@@ -227,7 +238,7 @@ class GraphExpression:
             return lens
         new_sub_expr = GraphExpression(item=(expr, 1), op=force_op)
         sub_expr.items[i] = (new_sub_expr, multiplicity)
-        return (new_sub_expr, 0)
+        return new_sub_expr, 0
 
     def at_index_tuple(self, index_tuple):
         expr, i = self.index_tuple_lens(index_tuple)
@@ -316,6 +327,7 @@ class GraphExpression:
     def __str__(self):
         t = "SUM" if self.op == self.SUM else "PROD"
         return f"{t}({', '.join('('+str(expr)+', ' + str(multiplicity)+')' for expr, multiplicity in self.items)})"
+
 
 class Row:
     def __init__(self, main_window, parent_row, explanation, graph_expr: GraphExpression, latex_explanation=None):
@@ -972,6 +984,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('ChromaCert')
         self.setGeometry(100, 100, 800, 600)
 
+        self.view_structure_action = None
         self.create_menu()
 
         self.rows = []
@@ -1011,18 +1024,25 @@ class MainWindow(QMainWindow):
                                                        self.new_graph_row(nx.complete_multipartite_graph(ii, jj)))
 
         view_menu = menu_bar.addMenu("View")
-        self.size_action_group = QActionGroup(self)
+        size_action_group = QActionGroup(self)
         sizes = [("Small", 150), ("Normal", 200), ("Large", 260), ("Extra Large", 350), ("Even Larger", 500)]
 
         for text, size in sizes:
-            action = QAction(f"{text} Graphs", self, checkable=True)
-            view_menu.addAction(action)
+            action = view_menu.addAction(f"{text} Graphs")
+            action.setCheckable(True)
             action.triggered.connect(lambda checked, s=size: self.set_graph_size(s))
-            self.size_action_group.addAction(action)
+            size_action_group.addAction(action)
 
         default_size_i = 1  # Medium is the default
-        self.size_action_group.actions()[1].setChecked(True)
+        size_action_group.actions()[1].setChecked(True)
         GraphWidget.size = sizes[default_size_i][1]
+
+        view_menu.addSeparator()
+
+        self.view_structure_action = view_menu.addAction("Show Expression Structure")
+        self.view_structure_action.setCheckable(True)
+        self.view_structure_action.setChecked(False)
+        self.view_structure_action.triggered.connect(self.on_toggle_structure)
 
     def add_row(self, row: Row):
         row.set_row_index(len(self.rows))
@@ -1041,6 +1061,17 @@ class MainWindow(QMainWindow):
         for row in self.rows:
             row.set_graph_size(size)
 
+    def on_toggle_structure(self, checked):
+        for row in self.rows:
+            for i in range(row.layout.count()):
+                item = row.layout.itemAt(i)
+                widget = item.widget()
+                if widget and isinstance(widget, OpLabel):
+                    widget.show_optional(checked)
+
+    def showing_structure(self):
+        return self.view_structure_action.isChecked()
+
     def single_graphs_from_rows(self):
         """
         Find all rows containing a single graph.
@@ -1052,6 +1083,7 @@ class MainWindow(QMainWindow):
             if len(l) == 1:
                 result.append((row.row_index, l[0]))
         return result
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
