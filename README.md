@@ -7,7 +7,7 @@ This software provided under an MIT license. See the file LICENSE for details.
 ## Prerequisites
 
 * Download and install the latest Python 3 from https://python.org (ChromaCert was developed using Python 3.11 under macOS)
-* `pip3 install matplotlib numpy networkx pyqt5`
+* `pip3 install matplotlib numpy sympy networkx pyqt5`
 
 ## Running the program
 
