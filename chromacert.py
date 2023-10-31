@@ -41,7 +41,7 @@ class RowLabel(QLabel):
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
 
-        copy_action = context_menu.addAction("Copy as new Row")
+        copy_action = context_menu.addAction("Append as new Row")
         copy_action.triggered.connect(self.on_copy)
 
         latex_action = context_menu.addAction("Copy as LaTeX")
@@ -694,8 +694,7 @@ class Row:
         new_row = Row(self.main_window, self.parent_row, self.explanation, new_graph_expr, self.latex_explanation)
         if self.parent_row:
             self.parent_row.reference_count += 1
-        if __name__ == '__main__':
-            self.main_window.add_row(new_row)
+        self.main_window.add_row(new_row)
 
     def derivation_to_latex_raw(self, is_final=True):
         if not self.parent_row:
@@ -991,17 +990,27 @@ class MainWindow(QMainWindow):
         self.rows = []
 
         # Set up the scrollable canvas
-        self.scrollArea = QScrollArea(self)
-        self.setCentralWidget(self.scrollArea)
-        self.scrollArea.setWidgetResizable(True)
+        self.scroll_area = QScrollArea(self)
+        self.setCentralWidget(self.scroll_area)
+        self.scroll_area.setWidgetResizable(True)
+        self.vertical_scroll_bar = self.scroll_area.verticalScrollBar()
+        self.horizontal_scroll_bar = self.scroll_area.horizontalScrollBar()
+        self.vertical_scroll_bar.rangeChanged.connect(self._scroll_to_bottom_left)
+        self.prevent_auto_scroll = False
 
         # Container widget for the scroll area
         self.container = QWidget()
-        self.scrollArea.setWidget(self.container)
+        self.scroll_area.setWidget(self.container)
 
         # Primary QVBoxLayout for the container
         self.layout = QVBoxLayout(self.container)
         self.layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
+
+    def _scroll_to_bottom_left(self, minimum, maximum):
+        if not self.prevent_auto_scroll:
+            self.vertical_scroll_bar.setValue(self.vertical_scroll_bar.maximum())
+            self.horizontal_scroll_bar.setValue(self.horizontal_scroll_bar.minimum())
+        self.prevent_auto_scroll = False
 
     def create_menu(self):
         menu_bar = self.menuBar()
@@ -1061,6 +1070,7 @@ class MainWindow(QMainWindow):
         GraphWidget.size = size
         for row in self.rows:
             row.set_graph_size(size)
+        self.prevent_auto_scroll = True
 
     def on_toggle_structure(self, checked):
         for row in self.rows:
