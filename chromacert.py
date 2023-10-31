@@ -44,7 +44,7 @@ class RowLabel(QLabel):
         copy_action = context_menu.addAction("Copy as new Row")
         copy_action.triggered.connect(self.on_copy)
 
-        latex_action = context_menu.addAction("Export as LaTeX")
+        latex_action = context_menu.addAction("Copy as LaTeX")
         latex_action.triggered.connect(self.on_latex)
 
         debug_action = context_menu.addAction("DEBUG Row")
@@ -57,7 +57,8 @@ class RowLabel(QLabel):
         self.row.copy_as_new_row()
 
     def on_latex(self):
-        print(self.row.derivation_to_latex_raw())
+        clipboard = QApplication.clipboard()
+        clipboard.setText(self.row.derivation_to_latex_raw())
 
     def on_debug(self):
         print(self.row.graph_expr)
