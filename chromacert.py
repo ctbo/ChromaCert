@@ -138,6 +138,9 @@ class GraphExpression:
     LPAREN = 10  # this is used as an operation type for an OpLabel only
     RPAREN = 11  # this is used as an operation type for an OpLabel only
 
+    open_parens = {SUM: "(", PROD: "["}
+    close_parens = {SUM: ")", PROD: "]"}
+
     def __init__(self, graph_w_pos=None, item=None, op=SUM):
         self.op = op
         if item is not None:
@@ -169,9 +172,8 @@ class GraphExpression:
                 self.items.insert(at_index, (deepcopy(graph_expr), multiplicity_delta))
 
     def create_widgets(self, row, index_tuple=()):
-        if not self.items:
-            return [QLabel(f"EMPTY {'SUM' if self.op == self.SUM else 'PROD'}")]
-        widgets = []
+        widgets = [OpLabel(self.LPAREN, row, index_tuple, self.open_parens[self.op])]
+
         first = True
         for i in range(len(self.items)):
             item, multiplicity = self.items[i]
@@ -194,15 +196,14 @@ class GraphExpression:
                 widgets.append(GraphWidget(graph_with_pos=item, row=row, index_tuple=new_index_tuple))
             else:
                 assert isinstance(item, GraphExpression)
-                if item.op < self.op:
-                    widgets.append(OpLabel(GraphExpression.LPAREN, row, new_index_tuple, "("))
                 widgets += item.create_widgets(row, new_index_tuple)
-                if item.op < self.op:
-                    widgets.append(OpLabel(GraphExpression.RPAREN, row, new_index_tuple, ")"))
 
             if self.op == self.PROD and multiplicity != 1:
                 widgets.append(QLabel(f"^{multiplicity}"))
             first = False
+
+        widgets.append(OpLabel(self.LPAREN, row, index_tuple, self.close_parens[self.op]))
+
         return widgets
 
     def index_tuple_lens(self, index_tuple, force_op=None) -> Tuple[GraphExpression, int]:
