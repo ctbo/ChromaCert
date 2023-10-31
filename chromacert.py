@@ -553,22 +553,22 @@ class Row:
         self.reference_count += 1
         self.main_window.add_row(new_row)
 
-    def select_single_graph(self, index_tuple):
-        for j in range(self.layout.count()):
-            item = self.layout.itemAt(j)
-            widget = item.widget()
-            if widget and isinstance(widget, GraphWidget):
-                if widget.index_tuple == index_tuple:
-                    widget.select_all()
-                else:
-                    widget.deselect_all()
-
     def deselect_all_except(self, index_tuple):
         for j in range(self.layout.count()):
             item = self.layout.itemAt(j)
             widget = item.widget()
             if widget and isinstance(widget, GraphWidget):
                 if widget.index_tuple != index_tuple:
+                    widget.deselect_all()
+
+    def select_subset(self, index_tuple_container):
+        for j in range(self.layout.count()):
+            item = self.layout.itemAt(j)
+            widget = item.widget()
+            if widget and isinstance(widget, GraphWidget):
+                if widget.index_tuple in index_tuple_container:
+                    widget.select_all()
+                else:
                     widget.deselect_all()
 
     def merge_isomorphic(self, index_tuple):
@@ -603,7 +603,7 @@ class Row:
         new_row = Row(self.main_window, self, "collect", new_graph_expr)
         self.reference_count += 1
         self.main_window.add_row(new_row)
-        self.select_single_graph(index_tuple)
+        self.select_subset([index_tuple])
 
     def can_separate(self, index_tuple):
         _, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
@@ -622,7 +622,7 @@ class Row:
         new_row = Row(self.main_window, self, "split term", new_graph_expr)
         self.reference_count += 1
         self.main_window.add_row(new_row)
-        self.select_single_graph(index_tuple)
+        self.select_subset([index_tuple])
 
     def flip(self, index_tuple):
         new_graph_expr = deepcopy(self.graph_expr)
@@ -652,7 +652,7 @@ class Row:
         new_row = Row(self.main_window, self, "insert", new_graph_expr)
         self.reference_count += 1
         self.main_window.add_row(new_row)
-        self.select_single_graph(index_tuple)
+        self.select_subset([index_tuple])
 
     def can_distribute_right(self, index_tuple):
         expr, i = self.graph_expr.index_tuple_lens(index_tuple)
@@ -686,7 +686,7 @@ class Row:
         new_row = Row(self.main_window, self, "distribute", new_graph_expr)
         self.reference_count += 1
         self.main_window.add_row(new_row)
-        self.select_single_graph(index_tuple)
+        self.select_subset([index_tuple])
 
     def copy_as_new_row(self):
         new_graph_expr = deepcopy(self.graph_expr)
