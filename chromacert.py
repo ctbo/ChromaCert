@@ -588,6 +588,8 @@ class Row:
             print("Nothing to simplify.")
             return
 
+        self.select_subset([index_tuple] + [index_tuple[:-1]+(j,) for j in iso_indices])
+
         if multiplicity != 0:
             sub_expr.items[i] = (graph_w_pos, multiplicity)
         else:
@@ -603,7 +605,6 @@ class Row:
         new_row = Row(self.main_window, self, "collect", new_graph_expr)
         self.reference_count += 1
         self.main_window.add_row(new_row)
-        self.select_subset([index_tuple])
 
     def can_separate(self, index_tuple):
         _, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
