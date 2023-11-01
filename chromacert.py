@@ -48,6 +48,11 @@ class GraphHash:
                 return self.hash[-unique_digits:]
         assert False, "This can't happen."
 
+    def __eq__(self, other):
+        if isinstance(other, GraphHash):
+            return self.hash == other.hash
+        return False
+
 
 class RowLabel(QLabel):
     def __init__(self, row=None, *args, **kwargs):
@@ -160,6 +165,17 @@ class GraphWithPos:
 
     def __repr__(self):
         return f"G<{self.graph_hash}>"
+
+    def __eq__(self, other):
+        """
+        GraphWithPos objects are considered equal when their graphs are isomorphic.
+        Instead of fully testing isomorphism, we just use equality of the graph hashes.
+        :param other: the object to compare with
+        :return: True if this graph is (most likely) isomorphic to the other one.
+        """
+        if isinstance(other, GraphWithPos):
+            return self.graph_hash == other.graph_hash
+        return False
 
 
 class GraphExpression:
