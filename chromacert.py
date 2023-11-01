@@ -323,14 +323,18 @@ class GraphExpression:
             sub_expr, _ = self.items[i]
             if isinstance(sub_expr, GraphExpression):
                 sub_expr.simplify_nesting(self, i)
-        if len(self.items) > 1 or parent is None:
-            return
-        if not self.items:
-            del parent.items[parent_i]
-        else:
-            expr, multiplicity = self.items[0]
-            if multiplicity == 1:
-                parent.items[parent_i] = expr, multiplicity
+        if parent:
+            if not self.items:
+                del parent.items[parent_i]
+            elif len(self.items) == 1:
+                expr, multiplicity = self.items[0]
+                if multiplicity == 1:
+                    parent.items[parent_i] = expr, multiplicity
+                    return
+            if parent.op == self.op:
+                del parent.items[parent_i]
+                for expr, multiplicity in self.items[::-1]:
+                    parent.items.insert(parent_i, (expr, multiplicity))
 
     def graph_list(self):
         """
@@ -459,6 +463,8 @@ class Row:
         graph_w_pos.G.remove_edge(u, v)
         sub_expr.insert(contracted_graph, -multiplicity, at_index=i+1)
 
+        new_graph_expr.simplify_nesting()
+
         new_row = Row(self.main_window, self, "DC", new_graph_expr)
         self.reference_count += 1
         self.main_window.add_row(new_row)
@@ -568,6 +574,8 @@ class Row:
         expr1.items[i1] = GraphWithPos(glued_graph), multiplicity1
         del expr1.items[i2]
         expr1.insert(GraphWithPos(nx.complete_graph(len(clique1))), multiplicity1)
+
+        new_graph_expr.simplify_nesting()
 
         new_row = Row(self.main_window, self, "glue", new_graph_expr)
         self.reference_count += 1
@@ -704,6 +712,8 @@ class Row:
                 del expr.items[i]
                 break
 
+        new_graph_expr.simplify_nesting()
+
         new_row = Row(self.main_window, self, "distribute", new_graph_expr)
         self.reference_count += 1
         self.main_window.add_row(new_row)
@@ -746,6 +756,8 @@ class Row:
                 summand_expr, summand_multiplicity = sum_expr.items[k]
             assert isinstance(summand_expr, GraphExpression) and summand_expr.op == GraphExpression.PROD
             summand_expr.insert(term_expr, -term_multiplicity, in_front=True)
+
+        new_graph_expr.simplify_nesting()
 
         new_row = Row(self.main_window, self, "factor out", new_graph_expr)
         self.reference_count += 1
@@ -1121,7 +1133,7 @@ class MainWindow(QMainWindow):
 
         view_menu.addSeparator()
 
-        self.view_structure_action = view_menu.addAction("Show Expression Structure")
+        self.view_structure_action = view_menu.addAction("Full Expression Structure")
         self.view_structure_action.setCheckable(True)
         self.view_structure_action.setChecked(False)
         self.view_structure_action.triggered.connect(self.on_toggle_structure)

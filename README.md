@@ -17,8 +17,12 @@ This software provided under an MIT license. See the file LICENSE for details.
 
 This project is in a very early stage of development. Not all intended functions are implemented 
 and there is no documentation yet. Most of the functionality is in context menus.
-Try right clicking on graphs, row labels, operands, parentheses ... it is hopefully self-explanatory
+Try right clicking on graphs, row labels, operands, parentheses ... it is hopefully somewhat self-explanatory
 (for someone who knows about chromatic polynomials of graphs).
+
+Click on things labelled "DEBUG" or "Test" at your own risk. Who knows what they might do
+today, and they might do something else a few hours later ;-). Also, they might crash the program.
+
 Here's a screenshot:
 
 ![Screenshot](screenshot-w5.png)
