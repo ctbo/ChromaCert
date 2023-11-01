@@ -30,6 +30,25 @@ TIMES_SYMBOL = "×"
 # TIMES_SYMBOL_LATEX = r"\times"
 
 
+class GraphHash:
+    """
+    A Weisfeiler–Lehman hash of a graph. This class keeps track of all hashes ever created.
+    The __repr__ method returns a shortened hash with the minimum number of digits that still make it unique
+    among all hashes created so far.
+    """
+    all_hashes = set()
+
+    def __init__(self, graph):
+        self.hash = nx.weisfeiler_lehman_graph_hash(graph)
+        self.all_hashes.add(self.hash)
+
+    def __repr__(self):
+        for unique_digits in range(1, 33):
+            if len(self.all_hashes) == len({hash[-unique_digits:] for hash in self.all_hashes}):
+                return self.hash[-unique_digits:]
+        assert False, "This can't happen."
+
+
 class RowLabel(QLabel):
     def __init__(self, row=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -61,7 +80,7 @@ class RowLabel(QLabel):
         clipboard.setText(self.row.derivation_to_latex_raw())
 
     def on_debug(self):
-        print(self.row.graph_expr)
+        print(f"({self.row.row_index+1}): {self.row.graph_expr}")
 
 
 class OpLabel(QLabel):
@@ -106,6 +125,7 @@ class OpLabel(QLabel):
 class GraphWithPos:
     def __init__(self, graph, pos=None):
         self.G = graph
+        self.graph_hash = GraphHash(graph)
         if pos is None:
             self.pos = nx.spring_layout(self.G)
         else:
@@ -138,8 +158,8 @@ class GraphWithPos:
                     return False
         return True
 
-    def __str__(self):
-        return "<G>"  # TODO this could show more information
+    def __repr__(self):
+        return f"G<{self.graph_hash}>"
 
 
 class GraphExpression:
@@ -152,15 +172,15 @@ class GraphExpression:
     open_parens = {SUM: "(", PROD: "["}
     close_parens = {SUM: ")", PROD: "]"}
 
-    def __init__(self, graph_w_pos=None, item=None, op=SUM):
+    def __init__(self, graph_w_pos_or_expr=None, item=None, op=SUM):
         self.op = op
         if item is not None:
             self.items = [item]
-        elif graph_w_pos is None:
+        elif graph_w_pos_or_expr is None:
             self.items = []
         else:
-            assert isinstance(graph_w_pos, GraphWithPos)
-            self.items = [(graph_w_pos, 1)]
+            assert isinstance(graph_w_pos_or_expr, GraphWithPos) or isinstance(graph_w_pos_or_expr, GraphExpression)
+            self.items = [(graph_w_pos_or_expr, 1)]
 
     def insert(self, graph_expr, multiplicity_delta, at_index=None, in_front=False):
         if at_index is None:
@@ -325,9 +345,9 @@ class GraphExpression:
                 result += expr.graph_list()
         return result
 
-    def __str__(self):
+    def __repr__(self):
         t = "SUM" if self.op == self.SUM else "PROD"
-        return f"{t}({', '.join('('+str(expr)+', ' + str(multiplicity)+')' for expr, multiplicity in self.items)})"
+        return f"{t}<{hex(id(self))[-4:]}>({', '.join('('+str(expr)+', ' + str(multiplicity)+')' for expr, multiplicity in self.items)})"
 
 
 class Row:
@@ -689,6 +709,49 @@ class Row:
         self.main_window.add_row(new_row)
         self.select_subset([index_tuple])
 
+    def can_factor_out(self, index_tuple):
+        if len(index_tuple) < 2:
+            return False
+        expr, _ = self.graph_expr.index_tuple_lens(index_tuple)
+        if expr.op != GraphExpression.PROD:
+            return False
+        super_expr, _ = self.graph_expr.index_tuple_lens(index_tuple[:-1])
+        return super_expr.op == GraphExpression.SUM
+
+    def do_factor_out(self, index_tuple):
+        assert len(index_tuple) >= 2
+        new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
+
+        expr, i = new_graph_expr.index_tuple_lens(index_tuple)
+        assert expr.op == GraphExpression.PROD
+        term_expr, term_multiplicity = expr.items[i]
+        sum_expr, _ =  new_graph_expr.index_tuple_lens(index_tuple[:-1])
+        assert sum_expr.op == GraphExpression.SUM
+        if len(index_tuple) == 2:
+            assert sum_expr is new_graph_expr
+            new_graph_expr = GraphExpression(new_graph_expr, op=GraphExpression.PROD)
+            super2_expr = new_graph_expr
+            j = 0
+        else:
+            super2_expr, j = new_graph_expr.index_tuple_lens(index_tuple[:-2])
+        assert super2_expr.op == GraphExpression.PROD
+
+        super2_expr.insert(term_expr, term_multiplicity, at_index=j)
+        for k in range(len(sum_expr.items)):
+            summand_expr, summand_multiplicity = sum_expr.items[k]
+            if not isinstance(summand_expr, GraphExpression):
+                assert isinstance(summand_expr, GraphWithPos)
+                sum_expr.items[k] = GraphExpression(summand_expr, op=GraphExpression.PROD), summand_multiplicity
+                summand_expr, summand_multiplicity = sum_expr.items[k]
+            assert isinstance(summand_expr, GraphExpression) and summand_expr.op == GraphExpression.PROD
+            summand_expr.insert(term_expr, -term_multiplicity, in_front=True)
+
+        new_row = Row(self.main_window, self, "factor out", new_graph_expr)
+        self.reference_count += 1
+        self.main_window.add_row(new_row)
+        self.select_subset([index_tuple])
+
     def copy_as_new_row(self):
         new_graph_expr = deepcopy(self.graph_expr)
         new_graph_expr.deselect_all()
@@ -889,6 +952,11 @@ class GraphWidget(QWidget):
         if not self.row.can_distribute_right(self.index_tuple) or not self.row.selecting_allowed():
             distribute_right_action.setEnabled(False)
 
+        factor_out_action = context_menu.addAction("Factor Out")
+        factor_out_action.triggered.connect(self.option_factor_out)
+        if not self.row.can_factor_out(self.index_tuple) or not self.row.selecting_allowed():
+            factor_out_action.setEnabled(False)
+
         context_menu.addSeparator()
 
         copy_action = context_menu.addAction("Copy as new Row")
@@ -973,6 +1041,9 @@ class GraphWidget(QWidget):
 
     def option_distribute_right(self):
         self.row.do_distribute_right(self.index_tuple)
+
+    def option_factor_out(self):
+        self.row.do_factor_out(self.index_tuple)
 
     def option_test(self):
         print(nx.chromatic_polynomial(self.graph_with_pos.G))
