@@ -406,12 +406,20 @@ class Row:
             label_text += f" [{self.explanation}]"
         self.row_label.setText(label_text)
 
-    def set_graph_size(self, size):
+    def graph_widgets(self):
+        """
+        All graph widgets in this row.
+        :return: an iterator over all widgets of class GraphWidget in this row
+        """
         for i in range(self.layout.count()):
             item = self.layout.itemAt(i)
             widget = item.widget()
             if widget and isinstance(widget, GraphWidget):
-                widget.setFixedSize(size, size)
+                yield widget
+
+    def set_graph_size(self, size):
+        for widget in self.graph_widgets():
+            widget.setFixedSize(size, size)
 
     def selecting_allowed(self):
         return self.reference_count == 0
@@ -419,15 +427,22 @@ class Row:
     def editing_allowed(self):
         return self.selecting_allowed() and self.parent_row is None
 
+    def highlight_isomorphic(self, index_tuple):
+        g, _ = self.graph_expr.at_index_tuple(index_tuple)
+        assert isinstance(g, GraphWithPos)
+        for widget in self.graph_widgets():
+            widget.set_highlight(g == widget.graph_with_pos)
+
+    def unhighlight_all(self):
+        for widget in self.graph_widgets():
+            widget.set_highlight(False)
+
     def selected_vertices(self):
         """ return list of tuples (index_tuple, selected_nodes) for all graphs with selected vertices """
         result = []
-        for i in range(self.layout.count()):
-            item = self.layout.itemAt(i)
-            widget = item.widget()
-            if widget and isinstance(widget, GraphWidget):
-                if widget.graph_with_pos.selected_nodes:
-                    result.append((widget.index_tuple, widget.graph_with_pos.selected_nodes))
+        for widget in self.graph_widgets():
+            if widget.graph_with_pos.selected_nodes:
+                result.append((widget.index_tuple, widget.graph_with_pos.selected_nodes))
         return result
 
     def can_add_identify(self, index_tuple):
@@ -598,22 +613,16 @@ class Row:
         self.main_window.add_row(new_row)
 
     def deselect_all_except(self, index_tuple):
-        for j in range(self.layout.count()):
-            item = self.layout.itemAt(j)
-            widget = item.widget()
-            if widget and isinstance(widget, GraphWidget):
-                if widget.index_tuple != index_tuple:
-                    widget.deselect_all()
+        for widget in self.graph_widgets():
+            if widget.index_tuple != index_tuple:
+                widget.deselect_all()
 
     def select_subset(self, index_tuple_container):
-        for j in range(self.layout.count()):
-            item = self.layout.itemAt(j)
-            widget = item.widget()
-            if widget and isinstance(widget, GraphWidget):
-                if widget.index_tuple in index_tuple_container:
-                    widget.select_all()
-                else:
-                    widget.deselect_all()
+        for widget in self.graph_widgets():
+            if widget.index_tuple in index_tuple_container:
+                widget.select_all()
+            else:
+                widget.deselect_all()
 
     def merge_isomorphic(self, index_tuple):
         new_graph_expr = deepcopy(self.graph_expr)
@@ -825,8 +834,9 @@ class GraphWidget(QWidget):
         self.dragging = False  # Flag to check if we are dragging a vertex
         self.dragging_ydata = None
         self.dragging_xdata = None
-        self.dragged_node = None  # Store the node being dragged
-        self.drag_occurred = False  # Flag to check if a drag action took place
+        self.dragged_node = None     # Store the node being dragged
+        self.drag_occurred = False   # Flag to check if a drag action took place
+        self.highlight = False       # if True highlight widget with light yellow background
 
         # Create a matplotlib figure and canvas
         self.fig, self.ax = plt.subplots(figsize=(5, 5))
@@ -856,7 +866,25 @@ class GraphWidget(QWidget):
         ]
         nx.draw(self.graph_with_pos.G, pos=self.graph_with_pos.pos,
                 ax=self.ax, with_labels=False, node_color=node_colors, node_size=100)
+
+        if self.highlight:
+            self.fig.patch.set_facecolor('#ffffe8')  # Light yellow
+        else:
+            self.fig.patch.set_facecolor('white')
+
         self.canvas.draw()
+
+    def set_highlight(self, highlight):
+        self.highlight = highlight
+        self.draw_graph()
+
+    def enterEvent(self, event):
+        self.row.highlight_isomorphic(self.index_tuple)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.row.unhighlight_all()
+        super().leaveEvent(event)
 
     def on_press(self, event):
         # Ensure that only a left-click initiates a drag
