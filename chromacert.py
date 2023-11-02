@@ -137,6 +137,9 @@ class GraphWithPos:
             self.pos = pos.copy()
         self.selected_nodes = set()
 
+    def rehash(self):
+        self.graph_hash = GraphHash(self.G)
+
     def select_all(self):
         self.selected_nodes = set(self.G.nodes)
 
@@ -190,7 +193,7 @@ class GraphWithPos:
         :return: True if this graph is (most likely) isomorphic to the other one.
         """
         if isinstance(other, GraphWithPos):
-            return nx.is_isomorphic(self.G, other.G)
+            return self.graph_hash == other.graph_hash  # and nx.is_isomorphic(self.G, other.G) ?
         return False
 
 
@@ -658,7 +661,8 @@ class Row:
         iso_indices = []
         for j in range(len(sub_expr.items)):
             graph_w_pos2, multiplicity2 = sub_expr.items[j]
-            if j != i and isinstance(graph_w_pos2, GraphWithPos) and nx.is_isomorphic(graph_w_pos.G, graph_w_pos2.G):
+            if j != i and isinstance(graph_w_pos2, GraphWithPos) and graph_w_pos == graph_w_pos2 and \
+                    nx.is_isomorphic(graph_w_pos.G, graph_w_pos2.G):  # to be mathematically sure
                 iso_indices.append(j)
                 multiplicity += multiplicity2
 
@@ -905,11 +909,13 @@ class GraphWidget(QWidget):
         self.draw_graph()
 
     def enterEvent(self, event):
-        self.row.highlight_isomorphic(self.index_tuple)
+        if self.row.selecting_allowed():
+            self.row.highlight_isomorphic(self.index_tuple)
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        self.row.unhighlight_all()
+        if self.row.selecting_allowed():
+            self.row.unhighlight_all()
         super().leaveEvent(event)
 
     def on_press(self, event):
@@ -1070,7 +1076,7 @@ class GraphWidget(QWidget):
         self.graph_with_pos.G.add_node(new_node)
         self.graph_with_pos.pos[new_node] = data_pos
 
-        # Redraw the graph
+        self.graph_with_pos.rehash()
         self.draw_graph()
 
     def option_toggle_edge(self):
@@ -1080,6 +1086,7 @@ class GraphWidget(QWidget):
                 self.graph_with_pos.G.remove_edge(u, v)
             else:
                 self.graph_with_pos.G.add_edge(u, v)
+            self.graph_with_pos.rehash()
             self.draw_graph()  # Redraw the graph to reflect the changes
 
     def option_delete_nodes(self):
@@ -1087,6 +1094,7 @@ class GraphWidget(QWidget):
             self.graph_with_pos.G.remove_node(node)
             del self.graph_with_pos.pos[node]
         self.graph_with_pos.selected_nodes = set()
+        self.graph_with_pos.rehash()
         self.draw_graph()
 
     def option_spring_layout(self):
