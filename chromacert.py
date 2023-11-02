@@ -174,7 +174,7 @@ class GraphWithPos:
         :return: True if this graph is (most likely) isomorphic to the other one.
         """
         if isinstance(other, GraphWithPos):
-            return self.graph_hash == other.graph_hash
+            return nx.is_isomorphic(self.G, other.G)
         return False
 
 
@@ -436,6 +436,16 @@ class Row:
     def unhighlight_all(self):
         for widget in self.graph_widgets():
             widget.set_highlight(False)
+
+    def broadcast_layout(self, index_tuple):
+        g, _ = self.graph_expr.at_index_tuple(index_tuple)
+        assert isinstance(g, GraphWithPos)
+        for widget in self.graph_widgets():
+            if g is not widget.graph_with_pos and g == widget.graph_with_pos:
+                isomorphism = nx.vf2pp_isomorphism(g.G, widget.graph_with_pos.G)
+                for node1, node2 in isomorphism.items():
+                    widget.graph_with_pos.pos[node2] = g.pos[node1]
+                widget.draw_graph()
 
     def selected_vertices(self):
         """ return list of tuples (index_tuple, selected_nodes) for all graphs with selected vertices """
@@ -950,6 +960,9 @@ class GraphWidget(QWidget):
         spring_layout_action = context_menu.addAction("Spring Layout")
         spring_layout_action.triggered.connect(self.option_spring_layout)
 
+        broadcast_layout_action = context_menu.addAction("Broadcast Layout to Isomorphic")
+        broadcast_layout_action.triggered.connect(self.option_broadcast_layout)
+
         max_clique_action = context_menu.addAction("Find Maximum Clique")
         max_clique_action.triggered.connect(self.option_max_clique)
         if not self.row.selecting_allowed():
@@ -1063,6 +1076,9 @@ class GraphWidget(QWidget):
     def option_spring_layout(self):
         self.graph_with_pos.pos = nx.spring_layout(self.graph_with_pos.G)
         self.draw_graph()
+
+    def option_broadcast_layout(self):
+        self.row.broadcast_layout(self.index_tuple)
 
     def option_max_clique(self):
         max_clique = max(nx.find_cliques(self.graph_with_pos.G), key=len)
