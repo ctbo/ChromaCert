@@ -149,9 +149,25 @@ class GraphWithPos:
         for node in self.G.nodes:
             node_options[node] = "selected" if node in self.selected_nodes else "unselected"
             node_labels[node] = ""
-        latex = nx.to_latex_raw(self.G, pos=deepcopy(self.pos), node_options=node_options,
+
+        # scale coordinates for LaTeX such that x and y ranges are [-1, 1]
+        data = [self.pos[node] for node in self.G.nodes]
+        data_x, data_y = zip(*data)
+        min_x = min(data_x)
+        max_x = max(data_x)
+        min_y = min(data_y)
+        max_y = max(data_y)
+        delta_x = max_x - min_x
+        if delta_x < 0.01:
+            delta_x = 0.01
+        delta_y = max_y - min_y
+        if delta_y < 0.01:
+            delta_y = 0.01
+        latex_pos = {node: ((x-min_x)/delta_x*2-1, (y-min_y)/delta_y*2-1) for node, (x, y) in self.pos.items()}
+
+        latex = nx.to_latex_raw(self.G, pos=latex_pos, node_options=node_options,
             node_label=node_labels,
-            tikz_options="show background rectangle,scale=0.6, baseline={([yshift=-0.5ex]current bounding box.center)}")
+            tikz_options="show background rectangle,scale=0.4, baseline={([yshift=-0.5ex]current bounding box.center)}")
         # TODO report bug in NetworkX. deepcopy() shouldn't be necessary, positions shouldn't be converted to strings
         return r"\fbox{" + latex + "}"
 
