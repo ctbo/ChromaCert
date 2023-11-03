@@ -456,6 +456,12 @@ class Row:
         for widget in self.graph_widgets():
             widget.set_highlight(False)
 
+    def append_derived_row(self, new_graph_expr, explanation):
+        new_row = Row(self.main_window, self, explanation, new_graph_expr)
+        self.reference_count += 1
+        self.main_window.add_row(new_row)
+        self.unhighlight_all()
+
     def broadcast_layout(self, index_tuple):
         g, _ = self.graph_expr.at_index_tuple(index_tuple)
         assert isinstance(g, GraphWithPos)
@@ -496,9 +502,7 @@ class Row:
         graph_w_pos.G.add_edge(u, v)
         sub_expr.insert(contracted_graph, multiplicity, at_index=i+1)
 
-        new_row = Row(self.main_window, self, "AI", new_graph_expr)
-        self.reference_count += 1
-        self.main_window.add_row(new_row)
+        self.append_derived_row(new_graph_expr, "AI")
         self.deselect_all_except(index_tuple)
 
     def can_delete_contract(self, index_tuple):
@@ -525,9 +529,7 @@ class Row:
 
         new_graph_expr.simplify_nesting()
 
-        new_row = Row(self.main_window, self, "DC", new_graph_expr)
-        self.reference_count += 1
-        self.main_window.add_row(new_row)
+        self.append_derived_row(new_graph_expr, "DC")
         self.deselect_all_except(index_tuple)
 
     def can_clique_sep(self, index_tuple):
@@ -565,9 +567,7 @@ class Row:
             subgraph_w_pos = GraphWithPos(graph_w_pos.G.subgraph(subgraph_nodes).copy(), pos=graph_w_pos.pos)
             sub_expr.insert(subgraph_w_pos, multiplicity, at_index=i)
 
-        new_row = Row(self.main_window, self, "separate", new_graph_expr)
-        self.reference_count += 1
-        self.main_window.add_row(new_row)
+        self.append_derived_row(new_graph_expr, "separate")
         self.deselect_all_except(index_tuple)
 
     def can_clique_join(self, index_tuple):
@@ -637,9 +637,7 @@ class Row:
 
         new_graph_expr.simplify_nesting()
 
-        new_row = Row(self.main_window, self, "glue", new_graph_expr)
-        self.reference_count += 1
-        self.main_window.add_row(new_row)
+        self.append_derived_row(new_graph_expr, "glue")
 
     def deselect_all_except(self, index_tuple):
         for widget in self.graph_widgets():
@@ -685,9 +683,7 @@ class Row:
 
         new_graph_expr.simplify_nesting()
 
-        new_row = Row(self.main_window, self, "collect", new_graph_expr)
-        self.reference_count += 1
-        self.main_window.add_row(new_row)
+        self.append_derived_row(new_graph_expr, "collect")
 
     def can_separate(self, index_tuple):
         _, multiplicity = self.graph_expr.at_index_tuple(index_tuple)
@@ -703,9 +699,7 @@ class Row:
         sub_expr.items[i] = (graph_w_pos, multiplicity - sign)
         sub_expr.insert(deepcopy(graph_w_pos), sign, at_index=i+1)
 
-        new_row = Row(self.main_window, self, "split term", new_graph_expr)
-        self.reference_count += 1
-        self.main_window.add_row(new_row)
+        self.append_derived_row(new_graph_expr, "split term")
         self.select_subset([index_tuple])
 
     def flip(self, index_tuple):
@@ -716,9 +710,7 @@ class Row:
         assert i > 0
         sub_expr.items[i-1], sub_expr.items[i] = sub_expr.items[i], sub_expr.items[i-1]
 
-        new_row = Row(self.main_window, self, "flip", new_graph_expr)
-        self.reference_count += 1
-        self.main_window.add_row(new_row)
+        self.append_derived_row(new_graph_expr, "flip")
         self.deselect_all_except(())
 
     def insert_neutral(self, index_tuple, graph_w_pos: GraphWithPos):
@@ -733,9 +725,7 @@ class Row:
         sub_expr.insert(g2, -1, at_index=i)
         sub_expr.insert(g1, 1, at_index=i)
 
-        new_row = Row(self.main_window, self, "insert", new_graph_expr)
-        self.reference_count += 1
-        self.main_window.add_row(new_row)
+        self.append_derived_row(new_graph_expr, "insert")
         self.select_subset([index_tuple])
 
     def can_distribute_right(self, index_tuple):
@@ -769,9 +759,7 @@ class Row:
 
         new_graph_expr.simplify_nesting()
 
-        new_row = Row(self.main_window, self, "distribute", new_graph_expr)
-        self.reference_count += 1
-        self.main_window.add_row(new_row)
+        self.append_derived_row(new_graph_expr, "distribute")
         self.select_subset([index_tuple])
 
     def can_factor_out(self, index_tuple):
@@ -814,9 +802,7 @@ class Row:
 
         new_graph_expr.simplify_nesting()
 
-        new_row = Row(self.main_window, self, "factor out", new_graph_expr)
-        self.reference_count += 1
-        self.main_window.add_row(new_row)
+        self.append_derived_row(new_graph_expr, "factor out")
         self.select_subset([index_tuple])
 
     def copy_as_new_row(self):
@@ -826,6 +812,7 @@ class Row:
         if self.parent_row:
             self.parent_row.reference_count += 1
         self.main_window.add_row(new_row)
+        self.unhighlight_all()
 
     def derivation_to_latex_raw(self, is_final=True):
         if not self.parent_row:
