@@ -139,6 +139,7 @@ class GraphWithPos:
         else:
             self.pos = pos.copy()
         self.selected_nodes = set()
+        self.normalize_pos()
 
     def rehash(self):
         self.graph_hash = GraphHash(self.G)
@@ -148,6 +149,27 @@ class GraphWithPos:
 
     def deselect_all(self):
         self.selected_nodes = set()
+
+    def normalize_pos(self):
+        """
+        Scale all `pos` coordinates so that the graph fits in a bounding rectangle of (-1,-1) .. (1, 1)
+        (only if there are at least 2 nodes)
+        """
+        data = [self.pos[node] for node in self.G.nodes]
+        if len(data) >= 2:
+            data_x, data_y = zip(*data)
+            min_x = min(data_x)
+            max_x = max(data_x)
+            min_y = min(data_y)
+            max_y = max(data_y)
+            delta_x = max_x-min_x
+            if delta_x == 0:
+                delta_x = 0.01
+            delta_y = max_y-min_y
+            if delta_y == 0:
+                delta_y = 0.01
+            self.pos = {node: ((self.pos[node][0]-min_x) / delta_x * 2-1,
+                               (self.pos[node][1]-min_y) / delta_y * 2-1) for node in self.G.nodes}
 
     def to_latex_raw(self):
         node_options = {}
@@ -177,20 +199,7 @@ class GraphWithPos:
             latex += f"        \\node[{sel}] at (0,0) {{}};\n"
             latex += r"    \end{tikzpicture}" + "\n"
         else:
-            data_x, data_y = zip(*data)
-            min_x = min(data_x)
-            max_x = max(data_x)
-            min_y = min(data_y)
-            max_y = max(data_y)
-            delta_x = max_x - min_x
-            if delta_x < 0.01:
-                delta_x = 0.01
-            delta_y = max_y - min_y
-            if delta_y < 0.01:
-                delta_y = 0.01
-            latex_pos = {node: ((x-min_x)/delta_x*2-1, (y-min_y)/delta_y*2-1) for node, (x, y) in self.pos.items()}
-
-            latex = nx.to_latex_raw(self.G, pos=latex_pos, node_options=node_options,
+            latex = nx.to_latex_raw(self.G, pos=deepcopy(self.pos), node_options=node_options,
                 node_label=node_labels,
                 tikz_options="show background rectangle,scale=0.4, baseline={([yshift=-0.5ex]current bounding box.center)}")
             # TODO report bug in NetworkX: it converts the pos entries to strings
@@ -603,8 +612,9 @@ class Row:
             print("Clique isn't separating.")
             return
         if clique:
-            sub_expr.items[i] = (GraphWithPos(graph_w_pos.G.subgraph(clique).copy(), pos=graph_w_pos.pos),
-                                 -multiplicity * (len(components) - 1))
+            new_clique_graph = GraphWithPos(graph_w_pos.G.subgraph(clique).copy(), pos=graph_w_pos.pos)
+            new_clique_graph.normalize_pos()
+            sub_expr.items[i] = (new_clique_graph, -multiplicity * (len(components) - 1))
         else:
             del sub_expr.items[i]  # the empty graph has chromatic polynomial 1 and can be deleted
         for component in components:
@@ -988,11 +998,13 @@ class GraphWidget(QWidget):
                 self.graph_with_pos.selected_nodes.remove(self.dragged_node)
             else:
                 self.graph_with_pos.selected_nodes.add(self.dragged_node)
-            self.draw_graph()
 
         self.dragging = False
         self.dragged_node = None
         self.drag_occurred = False  # Reset the drag_occurred flag
+
+        self.graph_with_pos.normalize_pos()
+        self.draw_graph()
 
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
@@ -1086,7 +1098,9 @@ class GraphWidget(QWidget):
         copy_action = context_menu.addAction("Copy as new Row")
         copy_action.triggered.connect(self.option_copy)
 
-        test_action = context_menu.addAction("Test")
+        context_menu.addSeparator()
+
+        test_action = context_menu.addAction("DEBUG")
         test_action.triggered.connect(self.option_test)
 
         # Show the context menu at the cursor's position
@@ -1175,7 +1189,7 @@ class GraphWidget(QWidget):
         self.row.do_factor_out(self.index_tuple)
 
     def option_test(self):
-        print(nx.chromatic_polynomial(self.graph_with_pos.G))
+        print(self.graph_with_pos.pos)
 
 
 class MainWindow(QMainWindow):
