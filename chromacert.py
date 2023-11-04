@@ -159,25 +159,33 @@ class GraphWithPos:
             # we're drawing the empty graph
             latex = r"""
     \begin{tikzpicture}[show background rectangle,scale=0.4, baseline={([yshift=-0.5ex]current bounding box.center)}]
-          \path (-1,-1) rectangle (1,1);
+        \node[invisible] at (-1,-1) {};
+        \node[invisible] at (1,1) {};
     \end{tikzpicture}
 """
+        elif len(data) == 1:
+            latex = r"""
+    \begin{tikzpicture}[show background rectangle,scale=0.4, baseline={([yshift=-0.5ex]current bounding box.center)}]
+        \node[invisible] at (-1,-1) {};
+        \node[invisible] at (1,1) {};
+"""
+            node = list(self.G.nodes)[0]
+            sel = "selected" if node in self.selected_nodes else "unselected"
+            latex += f"        \\node[{sel}] at (0,0) {{}};\n"
+            latex += r"    \end{tikzpicture}" + "\n"
         else:
-            if len(data) == 1:
-                latex_pos = { node: (0,0) for node in self.G.nodes}
-            else:
-                data_x, data_y = zip(*data)
-                min_x = min(data_x)
-                max_x = max(data_x)
-                min_y = min(data_y)
-                max_y = max(data_y)
-                delta_x = max_x - min_x
-                if delta_x < 0.01:
-                    delta_x = 0.01
-                delta_y = max_y - min_y
-                if delta_y < 0.01:
-                    delta_y = 0.01
-                latex_pos = {node: ((x-min_x)/delta_x*2-1, (y-min_y)/delta_y*2-1) for node, (x, y) in self.pos.items()}
+            data_x, data_y = zip(*data)
+            min_x = min(data_x)
+            max_x = max(data_x)
+            min_y = min(data_y)
+            max_y = max(data_y)
+            delta_x = max_x - min_x
+            if delta_x < 0.01:
+                delta_x = 0.01
+            delta_y = max_y - min_y
+            if delta_y < 0.01:
+                delta_y = 0.01
+            latex_pos = {node: ((x-min_x)/delta_x*2-1, (y-min_y)/delta_y*2-1) for node, (x, y) in self.pos.items()}
 
             latex = nx.to_latex_raw(self.G, pos=latex_pos, node_options=node_options,
                 node_label=node_labels,
@@ -852,6 +860,7 @@ class Row:
 \tikzset{%
     unselected/.style={circle,fill=blue,minimum size=1.5mm,inner sep=0pt},
     selected/.style={circle,fill=red,minimum size=1.5mm,inner sep=0pt},
+    invisible/.style={circle,minimum size=1.5mm,inner sep=0pt,opacity=0},
     background rectangle/.style={fill=cyan!15},
 }
 \setlength{\fboxsep}{0.3ex}
