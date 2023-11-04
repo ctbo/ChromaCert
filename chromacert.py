@@ -155,23 +155,35 @@ class GraphWithPos:
 
         # scale coordinates for LaTeX such that x and y ranges are [-1, 1]
         data = [self.pos[node] for node in self.G.nodes]
-        data_x, data_y = zip(*data)
-        min_x = min(data_x)
-        max_x = max(data_x)
-        min_y = min(data_y)
-        max_y = max(data_y)
-        delta_x = max_x - min_x
-        if delta_x < 0.01:
-            delta_x = 0.01
-        delta_y = max_y - min_y
-        if delta_y < 0.01:
-            delta_y = 0.01
-        latex_pos = {node: ((x-min_x)/delta_x*2-1, (y-min_y)/delta_y*2-1) for node, (x, y) in self.pos.items()}
+        if not data:
+            # we're drawing the empty graph
+            latex = r"""
+    \begin{tikzpicture}[show background rectangle,scale=0.4, baseline={([yshift=-0.5ex]current bounding box.center)}]
+          \path (-1,-1) rectangle (1,1);
+    \end{tikzpicture}
+"""
+        else:
+            if len(data) == 1:
+                latex_pos = { node: (0,0) for node in self.G.nodes}
+            else:
+                data_x, data_y = zip(*data)
+                min_x = min(data_x)
+                max_x = max(data_x)
+                min_y = min(data_y)
+                max_y = max(data_y)
+                delta_x = max_x - min_x
+                if delta_x < 0.01:
+                    delta_x = 0.01
+                delta_y = max_y - min_y
+                if delta_y < 0.01:
+                    delta_y = 0.01
+                latex_pos = {node: ((x-min_x)/delta_x*2-1, (y-min_y)/delta_y*2-1) for node, (x, y) in self.pos.items()}
 
-        latex = nx.to_latex_raw(self.G, pos=latex_pos, node_options=node_options,
-            node_label=node_labels,
-            tikz_options="show background rectangle,scale=0.4, baseline={([yshift=-0.5ex]current bounding box.center)}")
-        # TODO report bug in NetworkX. deepcopy() shouldn't be necessary, positions shouldn't be converted to strings
+            latex = nx.to_latex_raw(self.G, pos=latex_pos, node_options=node_options,
+                node_label=node_labels,
+                tikz_options="show background rectangle,scale=0.4, baseline={([yshift=-0.5ex]current bounding box.center)}")
+            # TODO report bug in NetworkX: it converts the pos entries to strings
+
         return r"\fbox{" + latex + "}"
 
     def selection_is_clique(self):
@@ -220,13 +232,17 @@ class GraphExpression:
     def insert(self, graph_expr, multiplicity_delta, at_index=None, in_front=False):
         if at_index is None:
             for i in range(len(self.items)):
-                item, multiplicity = self.items[i]
-                if isinstance(item, GraphWithPos) and isinstance(graph_expr, GraphWithPos) and \
-                        nx.is_isomorphic(item.G, graph_expr.G):
+                graph_w_pos, multiplicity = self.items[i]
+                if isinstance(graph_w_pos, GraphWithPos) and isinstance(graph_expr, GraphWithPos) and \
+                        nx.is_isomorphic(graph_w_pos.G, graph_expr.G):
                     if multiplicity + multiplicity_delta == 0:
-                        del self.items[i]
+                        if self.op == self.PROD and len(self.items) == 1:
+                            # can't delete last factor from a product. Replace it by the empty graph (1)
+                            self.items[i] = GraphWithPos(nx.empty_graph(0, create_using=nx.Graph)), 1
+                        else:
+                            del self.items[i]
                     else:
-                        self.items[i] = (item, multiplicity+multiplicity_delta)
+                        self.items[i] = (graph_w_pos, multiplicity+multiplicity_delta)
                     return
         if multiplicity_delta != 0:
             if at_index is None:
@@ -355,21 +371,37 @@ class GraphExpression:
 
     def simplify_nesting(self, parent=None, parent_i=None):
         for i in range(len(self.items)-1, -1, -1):  # iterate backwards in case items get deleted
-            sub_expr, _ = self.items[i]
+            sub_expr, multiplicity = self.items[i]
             if isinstance(sub_expr, GraphExpression):
                 sub_expr.simplify_nesting(self, i)
+
+        if self.op == self.PROD:
+            # remove empty graphs from products unless that would make the product empty
+            empty_indices = []
+            for i in range(len(self.items)):
+                sub_expr, multiplicity = self.items[i]
+                if isinstance(sub_expr, GraphWithPos) and sub_expr.G.number_of_nodes() == 0:
+                    empty_indices.append(i)
+            if len(empty_indices) < len(self.items):
+                for i in empty_indices[::-1]:
+                    del self.items[i]
+            else:
+                # all factors are powers of the empty graph. Simplify to one empty graph to the power of 1
+                self.items = [(self.items[0][0], 1)]
+
         if parent:
             if not self.items:
                 del parent.items[parent_i]
-            elif len(self.items) == 1:
-                expr, multiplicity = self.items[0]
-                if multiplicity == 1:
-                    parent.items[parent_i] = expr, multiplicity
-                    return
-            if parent.op == self.op:
+            elif parent.op == self.op:
+                parent_multiplicity = parent.items[parent_i][1]
                 del parent.items[parent_i]
                 for expr, multiplicity in self.items[::-1]:
-                    parent.items.insert(parent_i, (expr, multiplicity))
+                    parent.items.insert(parent_i, (expr, multiplicity*parent_multiplicity))
+            elif len(self.items) == 1:
+                expr, multiplicity = self.items[0]
+                parent_multiplicity = parent.items[parent_i][1]
+                if multiplicity == 1:
+                    parent.items[parent_i] = expr, parent_multiplicity
 
     def graph_list(self):
         """
