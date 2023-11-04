@@ -23,6 +23,9 @@ from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas
 )
 
+import matplotlib as mpl
+mpl.rcParams['figure.max_open_warning'] = 0
+
 # configure multiplication symbol according to taste
 # TIMES_SYMBOL = "·"
 TIMES_SYMBOL_LATEX = r"\cdot"
@@ -540,6 +543,7 @@ class Row:
         graph_w_pos, multiplicity = sub_expr.items[i]
         contracted_graph = GraphWithPos(nx.contracted_nodes(graph_w_pos.G, u, v, self_loops=False))
         graph_w_pos.G.add_edge(u, v)
+        graph_w_pos.rehash()  # TODO refactor graph_w_pos so that all changes to the graphs are methods
         sub_expr.insert(contracted_graph, multiplicity, at_index=i+1)
 
         self.append_derived_row(new_graph_expr, "AI")
@@ -565,6 +569,7 @@ class Row:
         graph_w_pos, multiplicity = sub_expr.items[i]
         contracted_graph = GraphWithPos(nx.contracted_nodes(graph_w_pos.G, u, v, self_loops=False))
         graph_w_pos.G.remove_edge(u, v)
+        graph_w_pos.rehash()  # TODO refactor graph_w_pos so that all changes to the graphs are methods
         sub_expr.insert(contracted_graph, -multiplicity, at_index=i+1)
 
         new_graph_expr.simplify_nesting()
@@ -920,7 +925,7 @@ class GraphWidget(QWidget):
     def draw_graph(self):
         self.ax.clear()
         node_colors = [
-            'red' if node in self.graph_with_pos.selected_nodes else 'blue' for node in self.graph_with_pos.G.nodes()
+            'red' if node in self.graph_with_pos.selected_nodes else 'blue' for node in self.graph_with_pos.G.nodes
         ]
         nx.draw(self.graph_with_pos.G, pos=self.graph_with_pos.pos,
                 ax=self.ax, with_labels=False, node_color=node_colors, node_size=100)
