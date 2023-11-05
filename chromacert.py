@@ -18,6 +18,7 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout,
 from PyQt5.QtWidgets import QLabel
 from PyQt5.QtWidgets import QHBoxLayout
 from PyQt5.QtWidgets import QMenu, QActionGroup
+from PyQt5.QtGui import QPalette
 
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas
@@ -67,6 +68,7 @@ class RowLabel(QLabel):
 
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
+        context_menu.setStyleSheet(f"background-color: {default_menu_bg_color_name};")
 
         copy_action = context_menu.addAction("Append as new Row")
         copy_action.triggered.connect(self.on_copy)
@@ -76,6 +78,12 @@ class RowLabel(QLabel):
 
         debug_action = context_menu.addAction("DEBUG Row")
         debug_action.triggered.connect(self.on_debug)
+
+        debug2_action = context_menu.addAction("DEBUG add stretch")
+        debug2_action.triggered.connect(self.on_debug2)
+
+        debug3_action = context_menu.addAction("DEBUG layout")
+        debug3_action.triggered.connect(self.on_debug3)
 
         # Display the context menu
         context_menu.exec(event.globalPos())
@@ -89,6 +97,22 @@ class RowLabel(QLabel):
 
     def on_debug(self):
         print(f"({self.row.row_index+1}): {self.row.graph_expr}")
+
+    def on_debug2(self):
+        self.row.main_window.layout.addStretch()
+
+    def on_debug3(self):
+        for i in range(self.row.main_window.layout.count()):
+            item = self.row.main_window.layout.itemAt(i)
+            widget = item.widget()
+            if widget is not None:
+                print(f"Widget: {type(widget)}")
+            else:
+                child_layout = item.layout()
+                if child_layout is not None:
+                    print(f"Child Layout: {type(child_layout)}")
+                else:
+                    print("SpacerItem or other non-widget, non-layout item")
 
 
 class OpLabel(QLabel):
@@ -110,6 +134,7 @@ class OpLabel(QLabel):
 
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
+        context_menu.setStyleSheet(f"background-color: {default_menu_bg_color_name};")
 
         if self.op in {GraphExpression.SUM, GraphExpression.PROD}:
             flip_action = context_menu.addAction("Flip")
@@ -457,13 +482,17 @@ class Row:
         self.row_label = RowLabel(row=self)
         self.format_row_label()
 
-        self.layout = QHBoxLayout()
+        self.container = QWidget()
+
+        self.layout = QHBoxLayout(self.container)
         self.layout.addWidget(self.row_label)
 
         for widget in self.graph_expr.create_widgets(self):
             self.layout.addWidget(widget)
 
         self.layout.addStretch(1)  # push widgets to the left in each row
+
+        self.set_background_color()
 
     def set_row_index(self, row_index):
         self.row_index = row_index
@@ -498,6 +527,14 @@ class Row:
     def editing_allowed(self):
         return self.selecting_allowed() and self.parent_row is None
 
+    def set_background_color(self):
+        if self.editing_allowed():
+            self.container.setStyleSheet("background-color: #F0F0F0;")
+        elif self.selecting_allowed():
+            self.container.setStyleSheet("background-color: #E0E0E0;")
+        else:
+            self.container.setStyleSheet("background-color: #A0A0A0;")
+
     def highlight_isomorphic(self, index_tuple):
         g, _ = self.graph_expr.at_index_tuple(index_tuple)
         assert isinstance(g, GraphWithPos)
@@ -513,6 +550,7 @@ class Row:
         self.reference_count += 1
         self.main_window.add_row(new_row)
         self.unhighlight_all()
+        self.set_background_color()
 
     def broadcast_layout(self, index_tuple):
         g, _ = self.graph_expr.at_index_tuple(index_tuple)
@@ -872,6 +910,11 @@ class Row:
     def derivation_to_latex_raw(self, is_final=True):
         if not self.parent_row:
             result = r"""
+% in document preamble:
+% \usepackage{amsmath}
+% \usepackage{tikz}
+% \usetikzlibrary{backgrounds}
+
 \tikzset{%
     unselected/.style={circle,fill=blue,minimum size=1.5mm,inner sep=0pt},
     selected/.style={circle,fill=red,minimum size=1.5mm,inner sep=0pt},
@@ -1008,6 +1051,7 @@ class GraphWidget(QWidget):
 
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
+        context_menu.setStyleSheet(f"background-color: {default_menu_bg_color_name};")
 
         create_node_action = context_menu.addAction("Create Vertex")
         create_node_action.triggered.connect(lambda: self.option_create_node(event.pos()))
@@ -1220,6 +1264,7 @@ class MainWindow(QMainWindow):
         # Primary QVBoxLayout for the container
         self.layout = QVBoxLayout(self.container)
         self.layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
+        self.layout.addStretch()  # stretch always stays at the end to push widgets to the top
 
     def _scroll_to_bottom_left(self, minimum, maximum):
         if not self.prevent_auto_scroll:
@@ -1271,7 +1316,7 @@ class MainWindow(QMainWindow):
 
     def add_row(self, row: Row):
         row.set_row_index(len(self.rows))
-        self.layout.addLayout(row.layout)
+        self.layout.insertWidget(self.layout.count() - 1, row.container)  # insert new rows before the final stretch
         self.rows.append(row)
 
     def new_graph_row(self, graph=None, graph_w_pos=None):
@@ -1313,6 +1358,8 @@ class MainWindow(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    default_menu_palette = QMenu().palette()
+    default_menu_bg_color_name = default_menu_palette.color(QPalette.Background).name()
     mainWin = MainWindow()
     mainWin.show()
     sys.exit(app.exec_())
