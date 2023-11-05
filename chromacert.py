@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget
-from PyQt5.QtWidgets import QLabel, QLayout
+from PyQt5.QtWidgets import QLabel, QLayout, QFileDialog
 from PyQt5.QtWidgets import QHBoxLayout
 from PyQt5.QtWidgets import QMenu, QActionGroup
 from PyQt5.QtGui import QPalette
@@ -1335,6 +1335,9 @@ class MainWindow(QMainWindow):
         file_new_action = file_menu.addAction("New")
         file_new_action.triggered.connect(self.on_file_new)
 
+        file_save_as_action = file_menu.addAction("Save as ...")
+        file_save_as_action.triggered.connect(self.on_file_save_as)
+
         new_menu = menu_bar.addMenu("New Graph")
         new_action_empty = new_menu.addAction("Empty")
         new_action_empty.triggered.connect(lambda: self.new_graph_row(nx.empty_graph(0, create_using=nx.Graph)))
@@ -1417,6 +1420,16 @@ class MainWindow(QMainWindow):
 
     def on_file_new(self):
         self.start_new_document()
+
+    def on_file_save_as(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save As", "", "ChromaCert Files (*.chroma);;All Files (*)", options=options)
+        if file_name:
+            # If the user doesn't add the extension, add it for them
+            if not file_name.lower().endswith('.chroma'):
+                file_name += '.chroma'
+            with open(file_name, "w") as f:
+                json.dump(self.to_dict(), f, indent=2)
 
     def to_dict(self):
         return {
