@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget
-from PyQt5.QtWidgets import QLabel
+from PyQt5.QtWidgets import QLabel, QLayout
 from PyQt5.QtWidgets import QHBoxLayout
 from PyQt5.QtWidgets import QMenu, QActionGroup
 from PyQt5.QtGui import QPalette
@@ -32,6 +32,17 @@ mpl.rcParams['figure.max_open_warning'] = 0
 TIMES_SYMBOL_LATEX = r"\cdot"
 TIMES_SYMBOL = "×"
 # TIMES_SYMBOL_LATEX = r"\times"
+
+
+def clear_layout(layout):
+    if isinstance(layout, QLayout):
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+            else:
+                clear_layout(item.layout())
 
 
 class GraphHash:
@@ -99,11 +110,11 @@ class RowLabel(QLabel):
         print(f"({self.row.row_index+1}): {self.row.graph_expr}")
 
     def on_debug2(self):
-        self.row.main_window.layout.addStretch()
+        self.row.main_window.main_layout.addStretch()
 
     def on_debug3(self):
-        for i in range(self.row.main_window.layout.count()):
-            item = self.row.main_window.layout.itemAt(i)
+        for i in range(self.row.main_window.main_layout.count()):
+            item = self.row.main_window.main_layout.itemAt(i)
             widget = item.widget()
             if widget is not None:
                 print(f"Widget: {type(widget)}")
@@ -1261,10 +1272,15 @@ class MainWindow(QMainWindow):
         self.container = QWidget()
         self.scroll_area.setWidget(self.container)
 
-        # Primary QVBoxLayout for the container
-        self.layout = QVBoxLayout(self.container)
-        self.layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
-        self.layout.addStretch()  # stretch always stays at the end to push widgets to the top
+        self.main_layout = QVBoxLayout(self.container)
+        self.main_layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
+
+        self.start_new_document()
+
+    def start_new_document(self):
+        clear_layout(self.main_layout)
+        self.main_layout.addStretch()  # stretch always stays at the end to push widgets to the top
+        self.rows = []
 
     def _scroll_to_bottom_left(self, minimum, maximum):
         if not self.prevent_auto_scroll:
@@ -1274,6 +1290,10 @@ class MainWindow(QMainWindow):
 
     def create_menu(self):
         menu_bar = self.menuBar()
+
+        file_menu = menu_bar.addMenu("File")
+        file_new_action = file_menu.addAction("New")
+        file_new_action.triggered.connect(self.on_file_new)
 
         new_menu = menu_bar.addMenu("New Graph")
         new_action_empty = new_menu.addAction("Empty")
@@ -1316,7 +1336,7 @@ class MainWindow(QMainWindow):
 
     def add_row(self, row: Row):
         row.set_row_index(len(self.rows))
-        self.layout.insertWidget(self.layout.count() - 1, row.container)  # insert new rows before the final stretch
+        self.main_layout.insertWidget(self.main_layout.count()-1, row.container)  # insert before the final stretch
         self.rows.append(row)
 
     def new_graph_row(self, graph=None, graph_w_pos=None):
@@ -1355,6 +1375,8 @@ class MainWindow(QMainWindow):
                 result.append((row.row_index, l[0]))
         return result
 
+    def on_file_new(self):
+        self.start_new_document()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
