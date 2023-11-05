@@ -9,6 +9,7 @@ import sys
 from copy import deepcopy
 import math
 import itertools
+import json
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -90,7 +91,7 @@ class RowLabel(QLabel):
         debug_action = context_menu.addAction("DEBUG Row")
         debug_action.triggered.connect(self.on_debug)
 
-        debug2_action = context_menu.addAction("DEBUG add stretch")
+        debug2_action = context_menu.addAction("DEBUG JSON")
         debug2_action.triggered.connect(self.on_debug2)
 
         debug3_action = context_menu.addAction("DEBUG layout")
@@ -110,7 +111,7 @@ class RowLabel(QLabel):
         print(f"({self.row.row_index+1}): {self.row.graph_expr}")
 
     def on_debug2(self):
-        self.row.main_window.main_layout.addStretch()
+        print(json.dumps(self.row.to_dict()))
 
     def on_debug3(self):
         for i in range(self.row.main_window.main_layout.count()):
@@ -249,6 +250,23 @@ class GraphWithPos:
                 if not self.G.has_edge(nodes[i], nodes[j]):
                     return False
         return True
+
+    def to_dict(self):
+        """
+        :return: a dict for JSON serialisation
+        """
+        # we need to make a copy of our graph with just the nodes and edges
+        # because nx.node_link_data() may otherwise return a dict that is not JSON serializable
+        # TODO report this as a bug in NetworkX. contraction causes problems.
+        plain_graph = nx.Graph()
+        plain_graph.add_nodes_from(self.G.nodes)
+        plain_graph.add_edges_from(self.G.edges)
+
+        return { 'class': 'GraphWithPos',
+                 'graph': nx.node_link_data(plain_graph),
+                 'pos': {node: [x, y] for node, (x, y) in self.pos.items()},
+                 'selected_nodes': list(self.selected_nodes)
+               }
 
     def __repr__(self):
         return f"G<{self.graph_hash}>"
@@ -471,6 +489,15 @@ class GraphExpression:
                 assert isinstance(expr, GraphExpression)
                 result += expr.graph_list()
         return result
+
+    def to_dict(self):
+        """
+        :return: a dict for JSON serialisation
+        """
+        return { 'class': 'GraphExpression',
+                 'op': self.op,
+                 'items': [[expr.to_dict(), multiplicity] for expr, multiplicity in self.items]
+               }
 
     def __repr__(self):
         t = "SUM" if self.op == self.SUM else "PROD"
@@ -944,6 +971,19 @@ class Row:
             result += r"\end{align*}" + "\n"
         return result
 
+    def to_dict(self):
+        """
+        :return: a dict for JSON serialisation
+        """
+        return {
+            'class': 'Row',
+            'graph_expr': self.graph_expr.to_dict(),
+            'explanation': self.explanation,
+            'latex_explanation': self.latex_explanation,
+            'row_index': self.row_index,
+            'parent_row_index': self.parent_row.row_index if self.parent_row else -1
+        }
+
 
 class GraphWidget(QWidget):
     size = 200
@@ -1244,7 +1284,7 @@ class GraphWidget(QWidget):
         self.row.do_factor_out(self.index_tuple)
 
     def option_test(self):
-        print(self.graph_with_pos.pos)
+        print(json.dumps(self.graph_with_pos.to_dict()))
 
 
 class MainWindow(QMainWindow):
@@ -1377,6 +1417,13 @@ class MainWindow(QMainWindow):
 
     def on_file_new(self):
         self.start_new_document()
+
+    def to_dict(self):
+        return {
+            'class': 'ChromaCert',
+            'version': 1,
+            'rows': [row.to_dict() for row in self.rows]
+        }
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
