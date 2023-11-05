@@ -10,13 +10,14 @@ from copy import deepcopy
 import math
 import itertools
 import json
+import traceback
 
 import networkx as nx
 import matplotlib.pyplot as plt
 import numpy as np
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget
-from PyQt5.QtWidgets import QLabel, QLayout, QFileDialog
+from PyQt5.QtWidgets import QLabel, QLayout, QFileDialog, QMessageBox
 from PyQt5.QtWidgets import QHBoxLayout
 from PyQt5.QtWidgets import QMenu, QActionGroup
 from PyQt5.QtGui import QPalette
@@ -168,15 +169,24 @@ class OpLabel(QLabel):
 
 
 class GraphWithPos:
-    def __init__(self, graph, pos=None):
-        self.G = graph
-        self.graph_hash = GraphHash(graph)
-        if pos is None:
-            self.pos = nx.spring_layout(self.G)
+    def __init__(self, graph=None, pos=None, from_dict=None):
+        if from_dict is None:
+            assert graph is not None
+            self.G = graph
+            self.graph_hash = GraphHash(graph)
+            if pos is None:
+                self.pos = nx.spring_layout(self.G)
+            else:
+                self.pos = pos.copy()
+            self.selected_nodes = set()
+            self.normalize_pos()
         else:
-            self.pos = pos.copy()
-        self.selected_nodes = set()
-        self.normalize_pos()
+            # we're loading from a file
+            assert from_dict["class"] == "GraphWithPos"
+            self.G = nx.node_link_graph(from_dict["graph"])
+            self.graph_hash = GraphHash(self.G)
+            self.pos = { int(node): (x, y) for node, (x, y) in from_dict["pos"].items() }
+            self.selected_nodes = set(from_dict["selected_nodes"])
 
     def rehash(self):
         self.graph_hash = GraphHash(self.G)
@@ -189,7 +199,7 @@ class GraphWithPos:
 
     def normalize_pos(self):
         """
-        Scale all `pos` coordinates so that the graph fits in a bounding rectangle of (-1,-1) .. (1, 1)
+        Scale all `pos` coordinates so that the graph fits in a bounding rectangle of (-1,-1) ... (1, 1)
         (only if there are at least 2 nodes)
         """
         data = [self.pos[node] for node in self.G.nodes]
@@ -293,15 +303,28 @@ class GraphExpression:
     open_parens = {SUM: "(", PROD: "["}
     close_parens = {SUM: ")", PROD: "]"}
 
-    def __init__(self, graph_w_pos_or_expr=None, item=None, op=SUM):
-        self.op = op
-        if item is not None:
-            self.items = [item]
-        elif graph_w_pos_or_expr is None:
-            self.items = []
+    def __init__(self, graph_w_pos_or_expr=None, item=None, op=SUM, from_dict=None):
+        if from_dict is None:
+            self.op = op
+            if item is not None:
+                self.items = [item]
+            elif graph_w_pos_or_expr is None:
+                self.items = []
+            else:
+                assert isinstance(graph_w_pos_or_expr, GraphWithPos) or isinstance(graph_w_pos_or_expr, GraphExpression)
+                self.items = [(graph_w_pos_or_expr, 1)]
         else:
-            assert isinstance(graph_w_pos_or_expr, GraphWithPos) or isinstance(graph_w_pos_or_expr, GraphExpression)
-            self.items = [(graph_w_pos_or_expr, 1)]
+            # we're loading from a dict
+            assert from_dict["class"] == "GraphExpression"
+            self.op = from_dict["op"]
+            self.items = []
+            for item_dict, multiplicity in from_dict["items"]:
+                if item_dict["class"] == "GraphExpression":
+                    item = GraphExpression(from_dict=item_dict)
+                else:
+                    assert item_dict["class"] == "GraphWithPos"
+                    item = GraphWithPos(from_dict=item_dict)
+                self.items.append((item, multiplicity))
 
     def insert(self, graph_expr, multiplicity_delta, at_index=None, in_front=False):
         if at_index is None:
@@ -511,7 +534,7 @@ class Row:
         self.parent_row = parent_row
         self.explanation = explanation
         if latex_explanation is None:
-            self.latex_explanation = f"\\text{{{explanation}}}"
+            self.latex_explanation = f"\\text{{{explanation}}}" if explanation is not None else ""
         else:
             self.latex_explanation = latex_explanation
         self.graph_expr = graph_expr
@@ -1335,6 +1358,9 @@ class MainWindow(QMainWindow):
         file_new_action = file_menu.addAction("New")
         file_new_action.triggered.connect(self.on_file_new)
 
+        file_open_action = file_menu.addAction("Open ...")
+        file_open_action.triggered.connect(self.on_file_open)
+
         file_save_as_action = file_menu.addAction("Save as ...")
         file_save_as_action.triggered.connect(self.on_file_save_as)
 
@@ -1421,9 +1447,45 @@ class MainWindow(QMainWindow):
     def on_file_new(self):
         self.start_new_document()
 
+    def on_file_open(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(self, "Open ChromaCert File", "",
+                                                   "ChromaCert Files (*.chroma);;All Files (*)", options=options)
+        if file_name:
+            try:
+                with open(file_name) as f:
+                    file_dict = json.load(f)
+                assert file_dict.get("class") == "ChromaCert" and file_dict.get("version") == 1 and "rows" in file_dict, "Invalid file format"
+                self.start_new_document()
+                for row_dict in file_dict["rows"]:
+                    assert row_dict.get("class") == "Row"
+                    graph_expr = GraphExpression(from_dict=row_dict["graph_expr"])
+                    explanation = row_dict["explanation"]
+                    assert row_dict["row_index"] == len(self.rows)
+                    parent_row_index = row_dict["parent_row_index"]
+                    parent_row = self.rows[parent_row_index] if parent_row_index >= 0 else None
+                    if parent_row is not None:
+                        assert isinstance(parent_row, Row)
+                        parent_row.reference_count += 1
+                    latex_explanation = row_dict["latex_explanation"]
+                    row = Row(self, parent_row, explanation, graph_expr, latex_explanation)
+                    self.add_row(row)
+                for row in self.rows:
+                    row.set_background_color()
+
+            except Exception as e:
+                tb = traceback.format_exc()  # Get the full traceback as a string
+                error_dialog = QMessageBox(self)  # Parent to MainWindow
+                error_dialog.setIcon(QMessageBox.Critical)
+                error_dialog.setText("Error")
+                error_dialog.setInformativeText(str(e)+"\n\n"+tb)
+                error_dialog.setWindowTitle("Error")
+                error_dialog.exec_()  # This makes it modal
+
     def on_file_save_as(self):
         options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save As", "", "ChromaCert Files (*.chroma);;All Files (*)", options=options)
+        file_name, _ = QFileDialog.getSaveFileName(self, "Save As", "", "ChromaCert Files (*.chroma);;All Files (*)",
+                                                   options=options)
         if file_name:
             # If the user doesn't add the extension, add it for them
             if not file_name.lower().endswith('.chroma'):
