@@ -154,9 +154,13 @@ class OpLabel(QLabel):
             flip_action.triggered.connect(self.on_flip)
             if self.index_tuple[-1] == 0:
                 flip_action.setEnabled(False)  # can't flip at a leading minus or factor
-        else:
-            debug_action = context_menu.addAction("DEBUG")
-            debug_action.triggered.connect(self.on_debug)
+
+        if self.op == GraphExpression.LPAREN and len(self.index_tuple) > 0:
+            insert_neutral_submenu = context_menu.addMenu("Insert Neutral")
+            self.row.populate_insert_neutral_menu(insert_neutral_submenu, self.index_tuple)
+
+        debug_action = context_menu.addAction("DEBUG")
+        debug_action.triggered.connect(self.on_debug)
 
         # Display the context menu
         context_menu.exec(event.globalPos())
