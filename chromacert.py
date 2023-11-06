@@ -860,6 +860,20 @@ class Row:
         self.append_derived_row(new_graph_expr, "split term")
         self.select_subset([index_tuple])
 
+    def add_brackets_single(self, index_tuple):
+        new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
+        graph_w_pos, multiplicity = sub_expr.items[i]
+        other_op = GraphExpression.SUM if sub_expr.op == GraphExpression.PROD else GraphExpression.PROD
+        sub_expr.items[i] = GraphExpression(graph_w_pos, op=other_op), multiplicity
+
+        if sub_expr.op == GraphExpression.SUM:
+            self.main_window.show_structure()
+
+        self.append_derived_row(new_graph_expr, "brackets")
+        self.select_subset([index_tuple])
+
     def flip(self, index_tuple):
         new_graph_expr = deepcopy(self.graph_expr)
         new_graph_expr.deselect_all()
@@ -1206,6 +1220,8 @@ class GraphWidget(QWidget):
         if not self.row.can_separate(self.index_tuple) or not self.row.selecting_allowed():
             separate_action.setEnabled(False)
 
+        add_brackets_action = context_menu.addAction("Add Brackets")
+        add_brackets_action.triggered.connect(self.option_add_brackets)
         insert_neutral_submenu = context_menu.addMenu("Insert Neutral")
         self.row.populate_insert_neutral_menu(insert_neutral_submenu, self.index_tuple)
 
@@ -1304,6 +1320,9 @@ class GraphWidget(QWidget):
         new_graph_w_pos = deepcopy(self.graph_with_pos)
         new_graph_w_pos.deselect_all()
         self.row.main_window.new_graph_row(graph_w_pos=new_graph_w_pos)
+
+    def option_add_brackets(self):
+        self.row.add_brackets_single(self.index_tuple)
 
     def option_distribute_right(self):
         self.row.do_distribute_right(self.index_tuple)
@@ -1456,6 +1475,10 @@ class MainWindow(QMainWindow):
 
     def showing_structure(self):
         return self.view_structure_action.isChecked()
+
+    def show_structure(self):
+        if not self.showing_structure():
+            self.view_structure_action.setChecked(True)
 
     def single_graphs_from_rows(self):
         """
