@@ -1386,7 +1386,7 @@ class MainWindow(QMainWindow):
         new_submenu_star = new_menu.addMenu("Star")
         for i in itertools.chain(range(3, 7), range(7, 20, 2)):
             new_action_star = new_submenu_star.addAction(f"St_{i}")
-            new_action_star.triggered.connect(lambda checked, ii=i: self.new_graph_row(nx.star_graph(ii+1)))
+            new_action_star.triggered.connect(lambda checked, ii=i: self.new_graph_row(nx.star_graph(ii)))
 
         new_submenu_bipartite = new_menu.addMenu("Bipartite")
         for i in range(2, 6):
