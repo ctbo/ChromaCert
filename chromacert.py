@@ -92,7 +92,7 @@ class RowLabel(QLabel):
         debug_action = context_menu.addAction("DEBUG Row")
         debug_action.triggered.connect(self.on_debug)
 
-        debug2_action = context_menu.addAction("DEBUG JSON")
+        debug2_action = context_menu.addAction("DEBUG background")
         debug2_action.triggered.connect(self.on_debug2)
 
         debug3_action = context_menu.addAction("DEBUG layout")
@@ -112,7 +112,7 @@ class RowLabel(QLabel):
         print(f"({self.row.row_index+1}): {self.row.graph_expr}")
 
     def on_debug2(self):
-        print(json.dumps(self.row.to_dict()))
+        self.row.set_background_color()
 
     def on_debug3(self):
         for i in range(self.row.main_window.main_layout.count()):
@@ -1470,6 +1470,9 @@ class MainWindow(QMainWindow):
                     latex_explanation = row_dict["latex_explanation"]
                     row = Row(self, parent_row, explanation, graph_expr, latex_explanation)
                     self.add_row(row)
+
+                QApplication.processEvents()  # without this, setting the background colors didn't fully work
+
                 for row in self.rows:
                     row.set_background_color()
 
