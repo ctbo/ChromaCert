@@ -867,6 +867,21 @@ class Row:
         self.append_derived_row(new_graph_expr, "flip")
         self.deselect_all_except(())
 
+    def populate_insert_neutral_menu(self, insert_neutral_menu, index_tuple):
+        singles = self.main_window.single_graphs_from_rows()
+        if singles and self.selecting_allowed():
+            sub_expr, i = self.graph_expr.index_tuple_lens(index_tuple)
+            for row_index, graph_w_pos in singles:
+                if sub_expr.op == GraphExpression.SUM:
+                    text = f"+ ({row_index+1}) – ({row_index+1})"
+                else:
+                    text = f"{TIMES_SYMBOL} ({row_index+1}) / ({row_index+1})"
+                sub_action = insert_neutral_menu.addAction(text)
+                sub_action.triggered.connect(lambda checked, g=graph_w_pos, it=index_tuple:
+                                             self.insert_neutral(it, g))
+        else:
+            insert_neutral_menu.setEnabled(False)
+
     def insert_neutral(self, index_tuple, graph_w_pos: GraphWithPos):
         g1 = deepcopy(graph_w_pos)
         g1.deselect_all()
@@ -1188,18 +1203,7 @@ class GraphWidget(QWidget):
             separate_action.setEnabled(False)
 
         insert_neutral_submenu = context_menu.addMenu("Insert Neutral")
-        singles = self.row.main_window.single_graphs_from_rows()
-        if singles and self.row.selecting_allowed():
-            sub_expr, i = self.row.graph_expr.index_tuple_lens(self.index_tuple)
-            for row_index, graph_w_pos in singles:
-                if sub_expr.op == GraphExpression.SUM:
-                    text = f"+ ({row_index+1}) – ({row_index+1})"
-                else:
-                    text = f"{TIMES_SYMBOL} ({row_index+1}) / ({row_index+1})"
-                sub_action = insert_neutral_submenu.addAction(text)
-                sub_action.triggered.connect(lambda checked, g=graph_w_pos: self.option_insert_neutral(g))
-        else:
-            insert_neutral_submenu.setEnabled(False)
+        self.row.populate_insert_neutral_menu(insert_neutral_submenu, self.index_tuple)
 
         distribute_right_action = context_menu.addAction("Distribute Right")
         distribute_right_action.triggered.connect(self.option_distribute_right)
@@ -1297,9 +1301,6 @@ class GraphWidget(QWidget):
         new_graph_w_pos.deselect_all()
         self.row.main_window.new_graph_row(graph_w_pos=new_graph_w_pos)
 
-    def option_insert_neutral(self, graph_w_pos):
-        self.row.insert_neutral(self.index_tuple, graph_w_pos)
-
     def option_distribute_right(self):
         self.row.do_distribute_right(self.index_tuple)
 
@@ -1307,7 +1308,7 @@ class GraphWidget(QWidget):
         self.row.do_factor_out(self.index_tuple)
 
     def option_test(self):
-        print(json.dumps(self.graph_with_pos.to_dict()))
+        print(self.index_tuple)
 
 
 class MainWindow(QMainWindow):
