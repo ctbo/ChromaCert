@@ -1367,20 +1367,40 @@ class MainWindow(QMainWindow):
         new_menu = menu_bar.addMenu("New Graph")
         new_action_empty = new_menu.addAction("Empty")
         new_action_empty.triggered.connect(lambda: self.new_graph_row(nx.empty_graph(0, create_using=nx.Graph)))
+
         new_submenu_complete = new_menu.addMenu("Complete")
         for i in range(2, 11):
             new_action_complete = new_submenu_complete.addAction(f"K_{i}")
             new_action_complete.triggered.connect(lambda checked, ii=i: self.new_graph_row(nx.complete_graph(ii)))
+
+        new_submenu_cycle = new_menu.addMenu("Cycle")
+        for i in range(3, 11):
+            new_action_cycle = new_submenu_cycle.addAction(f"C_{i}")
+            new_action_cycle.triggered.connect(lambda checked, ii=i: self.new_graph_row(nx.cycle_graph(ii)))
+
         new_submenu_wheel = new_menu.addMenu("Wheel")
         for i in itertools.chain(range(3, 7), range(7, 20, 2)):
             new_action_wheel = new_submenu_wheel.addAction(f"W_{i}")
             new_action_wheel.triggered.connect(lambda checked, ii=i: self.new_graph_row(nx.wheel_graph(ii+1)))
+
+        new_submenu_star = new_menu.addMenu("Star")
+        for i in itertools.chain(range(3, 7), range(7, 20, 2)):
+            new_action_star = new_submenu_star.addAction(f"St_{i}")
+            new_action_star.triggered.connect(lambda checked, ii=i: self.new_graph_row(nx.star_graph(ii+1)))
+
         new_submenu_bipartite = new_menu.addMenu("Bipartite")
         for i in range(2, 6):
             for j in range(2, i+1):
                 new_action_bipartite = new_submenu_bipartite.addAction(f"K_{{{i}, {j}}}")
                 new_action_bipartite.triggered.connect(lambda checked, ii=i, jj=j:
                                                        self.new_graph_row(nx.complete_multipartite_graph(ii, jj)))
+
+        new_submenu_grid = new_menu.addMenu("Grid")
+        for i in range(3, 7):
+            for j in range(2, i+1):
+                new_action_grid = new_submenu_grid.addAction(f"{i} × {j} grid")
+                new_action_grid.triggered.connect(lambda checked, ii=i, jj=j:
+                                                       self.new_graph_row(nx.grid_2d_graph(ii, jj)))
 
         view_menu = menu_bar.addMenu("View")
         size_action_group = QActionGroup(self)
@@ -1502,6 +1522,7 @@ class MainWindow(QMainWindow):
             'version': 1,
             'rows': [row.to_dict() for row in self.rows]
         }
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
