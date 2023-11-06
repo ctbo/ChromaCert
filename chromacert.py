@@ -155,6 +155,9 @@ class OpLabel(QLabel):
             if self.index_tuple[-1] == 0:
                 flip_action.setEnabled(False)  # can't flip at a leading minus or factor
 
+            bracket_submenu = context_menu.addMenu("Add Brackets")
+            self.row.populate_bracket_menu(bracket_submenu, self.index_tuple)
+
         if self.op == GraphExpression.LPAREN and len(self.index_tuple) > 0:
             insert_neutral_submenu = context_menu.addMenu("Insert Neutral")
             self.row.populate_insert_neutral_menu(insert_neutral_submenu, self.index_tuple)
@@ -307,10 +310,12 @@ class GraphExpression:
     open_parens = {SUM: "(", PROD: "["}
     close_parens = {SUM: ")", PROD: "]"}
 
-    def __init__(self, graph_w_pos_or_expr=None, item=None, op=SUM, from_dict=None):
+    def __init__(self, graph_w_pos_or_expr=None, item=None, items=None, op=SUM, from_dict=None):
         if from_dict is None:
             self.op = op
-            if item is not None:
+            if items is not None:
+                self.items = items
+            elif item is not None:
                 self.items = [item]
             elif graph_w_pos_or_expr is None:
                 self.items = []
@@ -861,18 +866,62 @@ class Row:
         self.select_subset([index_tuple])
 
     def add_brackets_single(self, index_tuple):
+        """
+        Add brackets around a single graph.
+        :param index_tuple: the index tuple of the selected graph
+        :return: None
+        """
         new_graph_expr = deepcopy(self.graph_expr)
         new_graph_expr.deselect_all()
         sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
         graph_w_pos, multiplicity = sub_expr.items[i]
-        other_op = GraphExpression.SUM if sub_expr.op == GraphExpression.PROD else GraphExpression.PROD
-        sub_expr.items[i] = GraphExpression(graph_w_pos, op=other_op), multiplicity
+        opposite_op = GraphExpression.SUM if sub_expr.op == GraphExpression.PROD else GraphExpression.PROD
+        sub_expr.items[i] = GraphExpression(graph_w_pos, op=opposite_op), multiplicity
 
         if sub_expr.op == GraphExpression.SUM:
-            self.main_window.show_structure()
+            self.main_window.show_structure()  # turn on full structure view so user sees all brackets
 
         self.append_derived_row(new_graph_expr, "brackets")
         self.select_subset([index_tuple])
+
+    def populate_bracket_menu(self, brackets_menu, index_tuple):
+        sub_expr, i = self.graph_expr.index_tuple_lens(index_tuple)
+        assert i > 0
+        begin_i = i - 1
+        l = len(sub_expr.items)
+        for end_i in range(i, l):
+            text = "x" if begin_i > 0 else "(x"
+            for j in range(1, l):
+                text += " ● " if j == i else " ○ "
+                text += "(x" if j == begin_i else "x"
+                if j == end_i:
+                    text += ")"
+            sub_action = brackets_menu.addAction(text)
+            sub_action.triggered.connect(lambda checked, it=index_tuple, ei=end_i: self.add_brackets_multiple(it, ei))
+
+    def add_brackets_multiple(self, index_tuple, end_i):
+        """
+        Add brackets around a range of sub-expressions. Will add two levels of nesting so that the inner
+        ``GraphExpression`` has the same ``op`` as the current one.
+        :param index_tuple: The index tuple of the *second* sub-expression to be included in the brackets.
+        :param end_i: The index of the last sub-expression to be included in the brackets.
+        :return: None
+        """
+        new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
+        assert i > 0
+        begin_i = i - 1
+        opposite_op = GraphExpression.SUM if sub_expr.op == GraphExpression.PROD else GraphExpression.PROD
+        bracketed_items = sub_expr.items[begin_i:end_i+1]
+        sub_expr.items[begin_i:end_i+1] = [(GraphExpression(GraphExpression(items=bracketed_items, op=sub_expr.op),
+                                                            op=opposite_op),
+                                            1)]
+
+        self.main_window.show_structure()  # turn on full structure view so user sees all brackets
+
+        self.append_derived_row(new_graph_expr, "brackets")
+        self.select_subset([index_tuple[:-1]+(j,) for j in range(begin_i, end_i+1)])
 
     def flip(self, index_tuple):
         new_graph_expr = deepcopy(self.graph_expr)
