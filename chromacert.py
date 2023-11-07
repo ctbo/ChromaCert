@@ -618,8 +618,8 @@ class Row:
         for widget in self.graph_widgets():
             widget.set_highlight(False)
 
-    def append_derived_row(self, new_graph_expr, explanation):
-        new_row = Row(self.main_window, self, explanation, new_graph_expr)
+    def append_derived_row(self, new_graph_expr, explanation, latex_explanation=None):
+        new_row = Row(self.main_window, self, explanation, new_graph_expr, latex_explanation=latex_explanation)
         self.reference_count += 1
         self.main_window.add_row(new_row)
         self.unhighlight_all()
@@ -963,8 +963,8 @@ class Row:
 
         sub_expr.insert(g2, -1, at_index=i)
         sub_expr.insert(g1, 1, at_index=i)
-
-        self.append_derived_row(new_graph_expr, "insert")
+        latex_explanation = "{} + G - G" if sub_expr.op == GraphExpression.SUM else f"{{}} {TIMES_SYMBOL_LATEX} G / G"
+        self.append_derived_row(new_graph_expr, "insert", latex_explanation=latex_explanation)
         self.select_subset([index_tuple])
 
     def can_distribute_right(self, index_tuple):
