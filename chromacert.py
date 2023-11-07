@@ -182,7 +182,7 @@ class GraphWithPos:
     def __init__(self, graph=None, pos=None, from_dict=None):
         if from_dict is None:
             assert graph is not None
-            self.G = graph
+            self.G = nx.convert_node_labels_to_integers(graph)  # clean node names (needed, e.g., for grid graphs)
             self.graph_hash = GraphHash(graph)
             if pos is None:
                 self.pos = nx.spring_layout(self.G)
