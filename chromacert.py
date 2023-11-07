@@ -446,9 +446,8 @@ class GraphExpression:
         else:
             assert self.op == self.PROD
 
-            def latex_helper(terms):
+            def latex_helper(terms, first=True):
                 result = ""
-                first = True
                 for term, multiplicity in terms:
                     if not first:
                         result += f"{TIMES_SYMBOL_LATEX} "
@@ -464,17 +463,31 @@ class GraphExpression:
 
             numerator = []
             denominator = []
+            sub_expressions = []
             for expr, multiplicity in self.items:
-                if multiplicity > 0:
-                    numerator.append((expr, multiplicity))
-                elif multiplicity < 0:
-                    denominator.append((expr, -multiplicity))
-            if not numerator:
+                if isinstance(expr, GraphExpression):
+                    sub_expressions.append((expr, multiplicity))
+                else:
+                    assert isinstance(expr, GraphWithPos)
+                    if multiplicity > 0:
+                        numerator.append((expr, multiplicity))
+                    elif multiplicity < 0:
+                        denominator.append((expr, -multiplicity))
+
+            if not numerator and not denominator:
+                result = ""
+                first = True
+            elif not numerator:
                 result = f"\\frac{{1}}{{{latex_helper(denominator)}}}"
+                first = False
             elif not denominator:
                 result = latex_helper(numerator)
+                first = False
             else:
                 result = f"\\frac{{{latex_helper(numerator)}}}{{{latex_helper(denominator)}}}"
+                first = False
+
+            result += latex_helper(sub_expressions, first=first)
 
         return result
 
