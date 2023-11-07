@@ -34,6 +34,9 @@ mpl.rcParams['figure.max_open_warning'] = 0
 TIMES_SYMBOL_LATEX = r"\cdot"
 TIMES_SYMBOL = "×"
 # TIMES_SYMBOL_LATEX = r"\times"
+ROW_BACKGROUND_LIGHT = "#F0F0F0"
+ROW_BACKGROUND_MEDIUM = "#E0E0E0"
+ROW_BACKGROUND_DARK = "#A0A0A0"
 
 
 def clear_layout(layout):
@@ -599,11 +602,11 @@ class Row:
 
     def set_background_color(self):
         if self.editing_allowed():
-            self.container.setStyleSheet("background-color: #F0F0F0;")
+            self.container.setStyleSheet(f"background-color: {ROW_BACKGROUND_LIGHT};")
         elif self.selecting_allowed():
-            self.container.setStyleSheet("background-color: #E0E0E0;")
+            self.container.setStyleSheet(f"background-color: {ROW_BACKGROUND_MEDIUM};")
         else:
-            self.container.setStyleSheet("background-color: #A0A0A0;")
+            self.container.setStyleSheet(f"background-color: {ROW_BACKGROUND_DARK};")
 
     def highlight_isomorphic(self, index_tuple):
         g, _ = self.graph_expr.at_index_tuple(index_tuple)
@@ -1406,6 +1409,7 @@ class MainWindow(QMainWindow):
 
         # Container widget for the scroll area
         self.container = QWidget()
+        self.container.setStyleSheet(f"background-color: {ROW_BACKGROUND_LIGHT};")
         self.scroll_area.setWidget(self.container)
 
         self.main_layout = QVBoxLayout(self.container)
