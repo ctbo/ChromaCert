@@ -26,3 +26,8 @@ today, and they might do something else a few hours later ;-). Also, they might 
 Here's a screenshot:
 
 ![Screenshot](screenshot-w5.png)
+
+## References
+
+1. Kerri Morgan, Graham Farr: Certificates of Factorisation for Chromatic Polynomials. The Electronic Journal of Combinatorics, Volume 16, Issue 1 (2009). DOI: [10.37236/163](https://doi.org/10.37236/163)
+2. Zoe Bukovac, Graham Farr, Kerri Morgan: Short certificates for chromatic equivalence, Journal of Graph Algorithms and Applications 2019, DOI: [10.7155/jgaa.00490](https://dx.doi.org/10.7155/jgaa.00490)
