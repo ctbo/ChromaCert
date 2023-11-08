@@ -492,10 +492,11 @@ class GraphExpression:
         return result
 
     def simplify_nesting(self, parent=None, parent_i=None):
+        modified = False
         for i in range(len(self.items)-1, -1, -1):  # iterate backwards in case items get deleted
             sub_expr, multiplicity = self.items[i]
             if isinstance(sub_expr, GraphExpression):
-                sub_expr.simplify_nesting(self, i)
+                modified = sub_expr.simplify_nesting(self, i) or modified
 
         if self.op == self.PROD:
             # remove empty graphs from products unless that would make the product empty
@@ -507,14 +508,18 @@ class GraphExpression:
             if len(empty_indices) < len(self.items):
                 for i in empty_indices[::-1]:
                     del self.items[i]
+                    modified = True
             else:
                 # all factors are powers of the empty graph. Simplify to one empty graph to the power of 1
                 self.items = [(self.items[0][0], 1)]
+                modified = True
 
         if parent:
             if not self.items:
+                modified = True
                 del parent.items[parent_i]
             elif parent.op == self.op:
+                modified = True
                 parent_multiplicity = parent.items[parent_i][1]
                 del parent.items[parent_i]
                 for expr, multiplicity in self.items[::-1]:
@@ -523,7 +528,17 @@ class GraphExpression:
                 expr, multiplicity = self.items[0]
                 parent_multiplicity = parent.items[parent_i][1]
                 if multiplicity == 1:
+                    modified = True
                     parent.items[parent_i] = expr, parent_multiplicity
+        else:
+            if len(self.items) == 1:
+                sub_expr, multiplicity = self.items[0]
+                if multiplicity == 1 and isinstance(sub_expr, GraphExpression):
+                    modified = True
+                    self.op = sub_expr.op
+                    self.items = sub_expr.items
+
+        return modified
 
     def graph_list(self):
         """
