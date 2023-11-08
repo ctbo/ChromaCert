@@ -86,6 +86,9 @@ class RowLabel(QLabel):
         context_menu = QMenu(self)
         context_menu.setStyleSheet(f"background-color: {default_menu_bg_color_name};")
 
+        simplify_action = context_menu.addAction("Simplify Brackets")
+        simplify_action.triggered.connect(self.on_simplify)
+
         copy_action = context_menu.addAction("Append as new Row")
         copy_action.triggered.connect(self.on_copy)
 
@@ -103,6 +106,9 @@ class RowLabel(QLabel):
 
         # Display the context menu
         context_menu.exec(event.globalPos())
+
+    def on_simplify(self):
+        self.row.simplify_nesting()
 
     def on_copy(self):
         self.row.copy_as_new_row()
@@ -1071,6 +1077,16 @@ class Row:
 
         self.append_derived_row(new_graph_expr, "factor out")
         self.select_subset([index_tuple])
+
+    def simplify_nesting(self):
+        new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
+        if new_graph_expr.simplify_nesting():
+            self.append_derived_row(new_graph_expr, "simplify")
+            self.select_subset([])
+        else:
+            print("Nothing to simplify")
+            # TODO: modal dialog
 
     def copy_as_new_row(self):
         new_graph_expr = deepcopy(self.graph_expr)
