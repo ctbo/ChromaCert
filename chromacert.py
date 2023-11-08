@@ -1608,7 +1608,7 @@ class MainWindow(QMainWindow):
             if not file_name.lower().endswith('.chroma'):
                 file_name += '.chroma'
             with open(file_name, "w") as f:
-                json.dump(self.to_dict(), f, indent=2)
+                json.dump(self.to_dict(), f)
 
     def to_dict(self):
         return {
