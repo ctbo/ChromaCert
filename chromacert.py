@@ -498,7 +498,7 @@ class GraphExpression:
         return result
 
     def simplify_nesting(self):
-        print(f"simplify_nesting({self=}")
+        # print(f"simplify_nesting({self=}")
         modified = False
         for i in range(len(self.items)-1, -1, -1):  # iterate backwards in case items get deleted
             sub_expr, multiplicity = self.items[i]
@@ -542,7 +542,7 @@ class GraphExpression:
                 self.op = sub_expr.op
                 self.items = sub_expr.items
 
-        print(f"{modified=}, {self=}")
+        # print(f"{modified=}, {self=}")
         return modified
 
     def graph_list(self):
@@ -583,7 +583,7 @@ class Row:
         else:
             self.latex_explanation = latex_explanation
         self.graph_expr = graph_expr
-        self.reference_count = 0  # TODO rows that are referenced by other rows shouldn't be edited
+        self.reference_count = 0
 
         self.row_label = RowLabel(row=self)
         self.format_row_label()
@@ -745,16 +745,31 @@ class Row:
         graph_w_pos, multiplicity = sub_expr.items[i]
 
         H = graph_w_pos.G.copy()
-        if len(graph_w_pos.selected_nodes) >= 1 and len(nx.connected_components(H)) > 1:
-            # TODO modal dialog
-            print("Can't separate by this clique: graph is not connected.")
+
+        if len(clique) >= 1 and len(list(nx.connected_components(H))) > 1:
+            message_box = QMessageBox()
+            message_box.setIcon(QMessageBox.Information)
+            message_box.setText("Graph is not connected")
+            message_box.setInformativeText("If a graph is not connected, it can only be separated by the empty clique,"
+                                           " i.e. no vertices must be selected.")
+            message_box.setWindowTitle("Separate by Clique")
+            message_box.setStandardButtons(QMessageBox.Ok)
+            message_box.exec_()
             return
+
         H.remove_nodes_from(clique)
         components = list(nx.connected_components(H))
         if len(components) <= 1:
-            # TODO modal dialog
-            print("Clique isn't separating.")
+            message_box = QMessageBox()
+            message_box.setIcon(QMessageBox.Information)
+            message_box.setText("Clique is not separating")
+            message_box.setInformativeText("After removing the selected clique, the graph must be split into at least "
+                                           "two components.")
+            message_box.setWindowTitle("Separate by Clique")
+            message_box.setStandardButtons(QMessageBox.Ok)
+            message_box.exec_()
             return
+
         if clique:
             new_clique_graph = GraphWithPos(graph_w_pos.G.subgraph(clique).copy(), pos=graph_w_pos.pos)
             new_clique_graph.normalize_pos()
@@ -864,8 +879,14 @@ class Row:
                 multiplicity += multiplicity2
 
         if not iso_indices:
-            # TODO modal dialog?
-            print("Nothing to simplify.")
+            message_box = QMessageBox()
+            message_box.setIcon(QMessageBox.Information)
+            message_box.setText("Nothing to simplify")
+            message_box.setInformativeText("No isomorphic copies of the selected graph were found on the same nesting "
+                                           "level within the same sum or product.")
+            message_box.setWindowTitle("Collect Isomorphic")
+            message_box.setStandardButtons(QMessageBox.Ok)
+            message_box.exec_()
             return
 
         self.select_subset([index_tuple] + [index_tuple[:-1]+(j,) for j in iso_indices])
@@ -1084,8 +1105,14 @@ class Row:
             self.append_derived_row(new_graph_expr, "simplify")
             self.select_subset([])
         else:
-            print("Nothing to simplify")
-            # TODO: modal dialog
+            message_box = QMessageBox()
+            message_box.setIcon(QMessageBox.Information)
+            message_box.setText("Nothing to simplify")
+            message_box.setInformativeText("Brackets in this expression are already simplified. "
+                                           "Try 'Collect Isomorphic' to combine isomorphic graphs.")
+            message_box.setWindowTitle("Simplify")
+            message_box.setStandardButtons(QMessageBox.Ok)
+            message_box.exec_()
 
     def copy_as_new_row(self):
         new_graph_expr = deepcopy(self.graph_expr)
