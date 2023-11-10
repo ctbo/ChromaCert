@@ -64,7 +64,7 @@ class GraphHash:
 
     def __repr__(self):
         for unique_digits in range(1, 33):
-            if len(self.all_hashes) == len({hash[-unique_digits:] for hash in self.all_hashes}):
+            if len(self.all_hashes) == len({h[-unique_digits:] for h in self.all_hashes}):
                 return self.hash[-unique_digits:]
         assert False, "This can't happen."
 
@@ -201,7 +201,7 @@ class GraphWithPos:
             assert from_dict["class"] == "GraphWithPos"
             self.G = nx.node_link_graph(from_dict["graph"])
             self.graph_hash = GraphHash(self.G)
-            self.pos = { int(node): (x, y) for node, (x, y) in from_dict["pos"].items() }
+            self.pos = {int(node): (x, y) for node, (x, y) in from_dict["pos"].items()}
             self.selected_nodes = set(from_dict["selected_nodes"])
 
     def rehash(self):
@@ -262,9 +262,9 @@ class GraphWithPos:
             latex += f"        \\node[{sel}] at (0,0) {{}};\n"
             latex += r"    \end{tikzpicture}" + "\n"
         else:
+            tikz_options = "show background rectangle,scale=0.4,baseline={([yshift=-0.5ex]current bounding box.center)}"
             latex = nx.to_latex_raw(self.G, pos=deepcopy(self.pos), node_options=node_options,
-                node_label=node_labels,
-                tikz_options="show background rectangle,scale=0.4, baseline={([yshift=-0.5ex]current bounding box.center)}")
+                                    node_label=node_labels, tikz_options=tikz_options)
             # TODO report bug in NetworkX: it converts the pos entries to strings
 
         return r"\fbox{" + latex + "}"
@@ -288,11 +288,12 @@ class GraphWithPos:
         plain_graph.add_nodes_from(self.G.nodes)
         plain_graph.add_edges_from(self.G.edges)
 
-        return { 'class': 'GraphWithPos',
-                 'graph': nx.node_link_data(plain_graph),
-                 'pos': {node: [x, y] for node, (x, y) in self.pos.items()},
-                 'selected_nodes': list(self.selected_nodes)
-               }
+        return {
+            'class': 'GraphWithPos',
+            'graph': nx.node_link_data(plain_graph),
+            'pos': {node: [x, y] for node, (x, y) in self.pos.items()},
+            'selected_nodes': list(self.selected_nodes)
+        }
 
     def __repr__(self):
         return f"G<{self.graph_hash}>"
@@ -562,14 +563,16 @@ class GraphExpression:
         """
         :return: a dict for JSON serialisation
         """
-        return { 'class': 'GraphExpression',
-                 'op': self.op,
-                 'items': [[expr.to_dict(), multiplicity] for expr, multiplicity in self.items]
-               }
+        return {
+            'class': 'GraphExpression',
+            'op': self.op,
+            'items': [[expr.to_dict(), multiplicity] for expr, multiplicity in self.items]
+        }
 
     def __repr__(self):
         t = "SUM" if self.op == self.SUM else "PROD"
-        return f"{t}<{hex(id(self))[-4:]}>({', '.join('('+str(expr)+', ' + str(multiplicity)+')' for expr, multiplicity in self.items)})"
+        return f"{t}<{hex(id(self))[-4:]}>(" + \
+               ', '.join(f'({expr}, {multiplicity})' for expr, multiplicity in self.items) + ")"
 
 
 class Row:
@@ -1072,7 +1075,7 @@ class Row:
         expr, i = new_graph_expr.index_tuple_lens(index_tuple)
         assert expr.op == GraphExpression.PROD
         term_expr, term_multiplicity = expr.items[i]
-        sum_expr, _ =  new_graph_expr.index_tuple_lens(index_tuple[:-1])
+        sum_expr, _ = new_graph_expr.index_tuple_lens(index_tuple[:-1])
         assert sum_expr.op == GraphExpression.SUM
         if len(index_tuple) == 2:
             assert sum_expr is new_graph_expr
@@ -1492,7 +1495,7 @@ class MainWindow(QMainWindow):
         self.main_layout.addStretch()  # stretch always stays at the end to push widgets to the top
         self.rows = []
 
-    def _scroll_to_bottom_left(self, minimum, maximum):
+    def _scroll_to_bottom_left(self):
         if not self.prevent_auto_scroll:
             self.vertical_scroll_bar.setValue(self.vertical_scroll_bar.maximum())
             self.horizontal_scroll_bar.setValue(self.horizontal_scroll_bar.minimum())
@@ -1547,7 +1550,7 @@ class MainWindow(QMainWindow):
             for j in range(2, i+1):
                 new_action_grid = new_submenu_grid.addAction(f"{i} × {j} grid")
                 new_action_grid.triggered.connect(lambda checked, ii=i, jj=j:
-                                                       self.new_graph_row(nx.grid_2d_graph(ii, jj)))
+                                                  self.new_graph_row(nx.grid_2d_graph(ii, jj)))
 
         view_menu = menu_bar.addMenu("View")
         size_action_group = QActionGroup(self)
@@ -1626,7 +1629,8 @@ class MainWindow(QMainWindow):
             try:
                 with open(file_name) as f:
                     file_dict = json.load(f)
-                assert file_dict.get("class") == "ChromaCert" and file_dict.get("version") == 1 and "rows" in file_dict, "Invalid file format"
+                assert file_dict.get("class") == "ChromaCert" and file_dict.get("version") == 1 and \
+                       "rows" in file_dict, "Invalid file format"
                 self.start_new_document()
                 for row_dict in file_dict["rows"]:
                     assert row_dict.get("class") == "Row"
