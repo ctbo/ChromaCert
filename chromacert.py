@@ -1127,6 +1127,14 @@ class Row:
         self.unhighlight_all()
 
     def derivation_to_latex_raw(self, is_final=True):
+        """
+        Return the derivation of the current row in LaTeX, following back the chain of `parent_row`s until the
+        start.
+        :param is_final: True if this is the last equation in the derivation
+        :return: If is_final == True, a string with the complete LaTeX derivation.
+            If is_final == False, a pair (result, carry) where result is the result so far and carry is a string
+            to be inserted in front of the next equals sign.
+        """
         if not self.parent_row:
             result = r"""
 % in document preamble:
@@ -1135,22 +1143,28 @@ class Row:
 % \usetikzlibrary{backgrounds}
 
 \tikzset{%
-    unselected/.style={circle,fill=blue,minimum size=1.5mm,inner sep=0pt},
-    selected/.style={circle,fill=red,minimum size=1.5mm,inner sep=0pt},
-    invisible/.style={circle,minimum size=1.5mm,inner sep=0pt,opacity=0},
+    unselected/.style={circle,fill=blue,minimum size=1.3mm,inner sep=0pt},
+    selected/.style={circle,fill=red,minimum size=1.3mm,inner sep=0pt},
+    invisible/.style={circle,minimum size=1.3mm,inner sep=0pt,opacity=0},
     background rectangle/.style={fill=cyan!15},
 }
 \setlength{\fboxsep}{0.3ex}
 \setlength{\fboxrule}{0pt}
-\begin{align*}
+\begin{alignat*}{2}
 """
-            result += self.graph_expr.to_latex_raw() + "\n"
+            carry = self.graph_expr.to_latex_raw() + "\n"
         else:
-            result = self.parent_row.derivation_to_latex_raw(is_final=False)
-            result += f"&= {self.graph_expr.to_latex_raw()} && [{self.latex_explanation}] \\\\\n"
+            result, carry = self.parent_row.derivation_to_latex_raw(is_final=False)
+            result += r"% \end{alignat*}\begin{alignat*}{2} % uncomment to break here" + "\n"
+            result += f"%%%%% ({self.row_index+1}):\n"
+            result += f"{self.latex_explanation}\\colon&& {carry} &= {self.graph_expr.to_latex_raw()}  \\\\\n"
+            carry = ""
         if is_final:
-            result += r"\end{align*}" + "\n"
-        return result
+            result += carry
+            result += r"\end{alignat*}" + "\n"
+            return result
+        else:
+            return result, carry
 
     def to_dict(self):
         """
