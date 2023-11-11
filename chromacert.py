@@ -18,10 +18,10 @@ import numpy as np
 
 from PyQt5.QtWidgets import QApplication, QMainWindow, QScrollArea, QVBoxLayout, QWidget
 from PyQt5.QtWidgets import QLabel, QLayout, QFileDialog, QMessageBox
-from PyQt5.QtWidgets import QHBoxLayout
+from PyQt5.QtWidgets import QHBoxLayout, QSizePolicy
 from PyQt5.QtWidgets import QMenu, QActionGroup
-from PyQt5.QtGui import QPalette
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPalette, QPixmap
+from PyQt5.QtCore import Qt, QSize
 
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas
@@ -149,6 +149,7 @@ class OpLabel(QLabel):
         self.row = row
         self.index_tuple = index_tuple
         self.optional = optional
+        self.pixmap = None
         if optional and not row.main_window.showing_structure():
             self.hide()
 
@@ -156,12 +157,31 @@ class OpLabel(QLabel):
         font.setPointSize(int(font.pointSize() * 1.5))  # increase font size for better readability
         self.setFont(font)
 
+        if self.op in {GraphExpression.LPAREN, GraphExpression.RPAREN}:
+            self.pixmap = BRACKET_PIXMAPS[self.text()]
+            self.setText("")
+            self.setPixmap(self.pixmap)
+            size_policy = QSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+            self.setSizePolicy(size_policy)
+
+    def minimumSizeHint(self):
+        if self.pixmap:
+            return QSize(self.pixmap.width(), self.pixmap.height() // 2)
+        return super().minimumSizeHint()
+
     def show_optional(self, show):
         if self.optional:
             if show:
                 self.show()
             else:
                 self.hide()
+
+    def resizeEvent(self, event):
+        if self.pixmap:
+            size = self.size()
+            scaled_pixmap = self.pixmap.scaled(size, Qt.IgnoreAspectRatio)
+            self.setPixmap(scaled_pixmap)
+        super().resizeEvent(event)
 
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
@@ -190,7 +210,7 @@ class OpLabel(QLabel):
         self.row.flip(self.index_tuple)
 
     def on_debug(self):
-        print(f"DEBUG: {self.op=} {self.index_tuple=}")
+        print(f"DEBUG: {self.op=} {self.index_tuple=} {self.width()=} {self.height()=}")
 
 
 class GraphWithPos:
@@ -415,7 +435,7 @@ class GraphExpression:
                 widgets.append(exponent_label)
             first = False
 
-        widgets.append(OpLabel(self.LPAREN, row, index_tuple, outer_optional, self.close_parens[self.op]))
+        widgets.append(OpLabel(self.RPAREN, row, index_tuple, outer_optional, self.close_parens[self.op]))
 
         return widgets
 
@@ -1709,6 +1729,14 @@ class MainWindow(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+
+    BRACKET_PIXMAPS = {
+        "(": QPixmap("resources/lparen200.png"),
+        ")": QPixmap("resources/rparen200.png"),
+        "[": QPixmap("resources/lbracket200.png"),
+        "]": QPixmap("resources/rbracket200.png"),
+    }
+
     default_menu_palette = QMenu().palette()
     default_menu_bg_color_name = default_menu_palette.color(QPalette.Background).name()
     mainWin = MainWindow()
