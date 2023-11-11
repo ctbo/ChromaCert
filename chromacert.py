@@ -21,6 +21,7 @@ from PyQt5.QtWidgets import QLabel, QLayout, QFileDialog, QMessageBox
 from PyQt5.QtWidgets import QHBoxLayout
 from PyQt5.QtWidgets import QMenu, QActionGroup
 from PyQt5.QtGui import QPalette
+from PyQt5.QtCore import Qt
 
 from matplotlib.backends.backend_qt5agg import (
     FigureCanvasQTAgg as FigureCanvas
@@ -48,6 +49,10 @@ def clear_layout(layout):
                 widget.deleteLater()
             else:
                 clear_layout(item.layout())
+
+
+def pretty_minus(s):
+    return s.replace("-", "–")
 
 
 class GraphHash:
@@ -146,6 +151,10 @@ class OpLabel(QLabel):
         self.optional = optional
         if optional and not row.main_window.showing_structure():
             self.hide()
+
+        font = self.font()
+        font.setPointSize(int(font.pointSize() * 1.5))  # increase font size for better readability
+        self.setFont(font)
 
     def show_optional(self, show):
         if self.optional:
@@ -383,10 +392,10 @@ class GraphExpression:
                     if not first:
                         widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple, False, "+"))
                 elif multiplicity == -1:
-                    widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple, False, "-"))
+                    widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple, False, "–"))
                 else:
-                    widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple, False,
-                                           f"{multiplicity}" if first else f"{multiplicity:+}"))
+                    text = pretty_minus(f"{multiplicity}" if first else f"{multiplicity:+}")
+                    widgets.append(OpLabel(GraphExpression.SUM, row, new_index_tuple, False, text))
             else:
                 if not first:
                     widgets.append(OpLabel(GraphExpression.PROD, row, new_index_tuple, False, TIMES_SYMBOL))
@@ -398,7 +407,12 @@ class GraphExpression:
                 widgets += item.create_widgets(row, new_index_tuple)
 
             if self.op == self.PROD and multiplicity != 1:
-                widgets.append(QLabel(f"^{multiplicity}"))
+                exponent_label = QLabel(f"{pretty_minus(str(multiplicity))}")
+                exponent_label.setAlignment(Qt.AlignTop)
+                font = exponent_label.font()
+                font.setPointSize(int(font.pointSize() * 1.5))  # increase font size for better readability
+                exponent_label.setFont(font)
+                widgets.append(exponent_label)
             first = False
 
         widgets.append(OpLabel(self.LPAREN, row, index_tuple, outer_optional, self.close_parens[self.op]))
