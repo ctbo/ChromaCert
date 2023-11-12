@@ -13,6 +13,7 @@ import json
 import traceback
 
 import networkx as nx
+from networkx import NetworkXException
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -1414,8 +1415,16 @@ class GraphWidget(QWidget):
         if not self.graph_with_pos.selected_nodes or not self.row.editing_allowed():
             delete_nodes_action.setEnabled(False)
 
+        context_menu.addSeparator()
+
         spring_layout_action = context_menu.addAction("Spring Layout")
         spring_layout_action.triggered.connect(self.option_spring_layout)
+
+        kamada_layout_action = context_menu.addAction("Kamada–Kawai Layout")
+        kamada_layout_action.triggered.connect(self.option_kamada_kawai_layout)
+
+        planar_layout_action = context_menu.addAction("Planar Layout")
+        planar_layout_action.triggered.connect(self.option_planar_layout)
 
         broadcast_layout_action = context_menu.addAction("Broadcast Layout to Isomorphic")
         broadcast_layout_action.triggered.connect(self.option_broadcast_layout)
@@ -1528,6 +1537,23 @@ class GraphWidget(QWidget):
     def option_spring_layout(self):
         self.graph_with_pos.pos = layout_with_scaffold(self.graph_with_pos.G)
         self.draw_graph()
+
+    def option_kamada_kawai_layout(self):
+        self.graph_with_pos.pos = nx.kamada_kawai_layout(self.graph_with_pos.G)
+        self.draw_graph()
+
+    def option_planar_layout(self):
+        try:
+            self.graph_with_pos.pos = nx.planar_layout(self.graph_with_pos.G)
+            self.draw_graph()
+        except NetworkXException:
+            message_box = QMessageBox()
+            message_box.setIcon(QMessageBox.Information)
+            message_box.setText("Graph not planar")
+            message_box.setInformativeText("This graph appears not to be planar, so a planar layout is not possible.")
+            message_box.setWindowTitle("Planar Layout")
+            message_box.setStandardButtons(QMessageBox.Ok)
+            message_box.exec_()
 
     def option_broadcast_layout(self):
         self.row.broadcast_layout(self.index_tuple)
