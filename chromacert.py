@@ -55,6 +55,29 @@ def pretty_minus(s):
     return s.replace("-", "–")
 
 
+def layout_with_scaffold(graph, layout_func=nx.spring_layout):
+    """
+    Layout a graph using a given layout function, but first make sure the graph is connected by picking
+    a minimum degree node from each component and connecting those with a clique.
+    When using spring_layout, this should prevent the components of a graph from drifting apart
+    :param graph: a graph
+    :param layout_func: an optional layout function
+    :return: a dictionary with nodes as keys and positions as values
+    """
+    components = list(nx.connected_components(graph))
+    if len(components) <= 1:
+        return layout_func(graph)
+
+    scaffold_nodes = [min(comp, key=lambda node: graph.degree(node)) for comp in components]
+    scaffolded_graph = graph.copy()
+    # connect components by forming a clique between scaffold_nodes
+    for i in range(len(scaffold_nodes)):
+        for j in range(i+1, len(scaffold_nodes)):
+            scaffolded_graph.add_edge(scaffold_nodes[i], scaffold_nodes[j])
+
+    return layout_func(scaffolded_graph)
+
+
 class GraphHash:
     """
     A Weisfeiler–Lehman hash of a graph. This class keeps track of all hashes ever created.
@@ -228,7 +251,7 @@ class GraphWithPos:
             self.G = nx.convert_node_labels_to_integers(graph)  # clean node names (needed, e.g., for grid graphs)
             self.graph_hash = GraphHash(graph)
             if pos is None:
-                self.pos = nx.spring_layout(self.G)
+                self.pos = layout_with_scaffold(self.G)
             else:
                 self.pos = pos.copy()
             self.selected_nodes = set()
@@ -1503,7 +1526,7 @@ class GraphWidget(QWidget):
         self.draw_graph()
 
     def option_spring_layout(self):
-        self.graph_with_pos.pos = nx.spring_layout(self.graph_with_pos.G)
+        self.graph_with_pos.pos = layout_with_scaffold(self.graph_with_pos.G)
         self.draw_graph()
 
     def option_broadcast_layout(self):
