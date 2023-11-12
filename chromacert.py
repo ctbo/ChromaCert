@@ -196,6 +196,11 @@ class OpLabel(QLabel):
             bracket_submenu = context_menu.addMenu("Add Brackets")
             self.row.populate_bracket_menu(bracket_submenu, self.index_tuple)
 
+            union_action = context_menu.addAction("Disjoint Union")
+            union_action.triggered.connect(self.on_union)
+            if not (self.row.selecting_allowed() and self.row.can_disjoint_union(self.index_tuple)):
+                union_action.setEnabled(False)
+
         if self.op == GraphExpression.LPAREN and len(self.index_tuple) > 0:
             insert_neutral_submenu = context_menu.addMenu("Insert Neutral")
             self.row.populate_insert_neutral_menu(insert_neutral_submenu, self.index_tuple)
@@ -208,6 +213,9 @@ class OpLabel(QLabel):
 
     def on_flip(self):
         self.row.flip(self.index_tuple)
+
+    def on_union(self):
+        self.row.do_disjoint_union(self.index_tuple)
 
     def on_debug(self):
         print(f"DEBUG: {self.op=} {self.index_tuple=} {self.width()=} {self.height()=}")
@@ -340,7 +348,7 @@ class GraphWithPos:
 
 
 class GraphExpression:
-    SUM = 1    # this encodes the type and the precedence level
+    SUM = 1  # this encodes the type and the precedence level
     PROD = 2
     # TODO the following isn't really clean design and should probably be refactored
     LPAREN = 10  # this is used as an operation type for an OpLabel only
@@ -889,6 +897,41 @@ class Row:
         new_graph_expr.simplify_nesting()
 
         self.append_derived_row(new_graph_expr, "glue")
+
+    def can_disjoint_union(self, index_tuple):
+        sub_expr, i = self.graph_expr.index_tuple_lens(index_tuple)
+        try:
+            assert sub_expr.op == GraphExpression.PROD
+            assert i > 0
+            graph_w_pos1, multiplicity1 = sub_expr.items[i-1]
+            graph_w_pos2, multiplicity2 = sub_expr.items[i]
+            assert multiplicity1 == multiplicity2
+            assert isinstance(graph_w_pos1, GraphWithPos)
+            assert isinstance(graph_w_pos2, GraphWithPos)
+        except AssertionError:
+            return False
+        return True
+
+    def do_disjoint_union(self, index_tuple):
+        new_graph_expr = deepcopy(self.graph_expr)
+        new_graph_expr.deselect_all()
+
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
+        assert sub_expr.op == GraphExpression.PROD
+        assert i > 0
+        graph_w_pos1, multiplicity1 = sub_expr.items[i-1]
+        graph_w_pos2, multiplicity2 = sub_expr.items[i]
+        assert multiplicity1 == multiplicity2
+        assert isinstance(graph_w_pos1, GraphWithPos)
+        assert isinstance(graph_w_pos2, GraphWithPos)
+
+        sub_expr.items[i-1] = GraphWithPos(nx.disjoint_union(graph_w_pos1.G, graph_w_pos2.G)), multiplicity1
+        del sub_expr.items[i]
+
+        new_graph_expr.simplify_nesting()
+
+        self.append_derived_row(new_graph_expr, "union")
+        self.select_subset([index_tuple, index_tuple[:-1]+(i-1,)])
 
     def deselect_all_except(self, index_tuple):
         for widget in self.graph_widgets():
