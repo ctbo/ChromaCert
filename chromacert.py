@@ -969,6 +969,59 @@ class Row:
         self.append_derived_row(new_graph_expr, "union")
         self.select_subset([index_tuple, index_tuple[:-1]+(i-1,)])
 
+    def can_whitney_flip(self, index_tuple):
+        graph_w_pos, _ = self.graph_expr.at_index_tuple(index_tuple)
+        return len(graph_w_pos.selected_nodes) == 2
+
+    def do_whitney_flip(self, index_tuple):
+        new_graph_expr = deepcopy(self.graph_expr)
+        sub_expr, i = new_graph_expr.index_tuple_lens(index_tuple)
+        graph_w_pos, multiplicity = sub_expr.items[i]
+        split = graph_w_pos.selected_nodes
+        assert len(split) == 2
+        u, v = split
+        new_graph_expr.deselect_all()
+
+        H = graph_w_pos.G.copy()
+
+        if len(list(nx.connected_components(H))) > 1:
+            message_box = QMessageBox()
+            message_box.setIcon(QMessageBox.Information)
+            message_box.setText("Graph is not connected")
+            message_box.setInformativeText("This function is only implemented for connected graphs."
+                                           "Consider separating components and gluing them back after the flip.")
+            message_box.setWindowTitle("Whitney Flip")
+            message_box.setStandardButtons(QMessageBox.Ok)
+            message_box.exec_()
+            return
+
+        H.remove_nodes_from(split)
+        components = list(nx.connected_components(H))
+        if len(components) != 2:
+            message_box = QMessageBox()
+            message_box.setIcon(QMessageBox.Information)
+            message_box.setText("Vertices not separating")
+            message_box.setInformativeText("After removing the selected vertices, the graph must be split into "
+                                           "exactly two components.")
+            message_box.setWindowTitle("Whitney Flip")
+            message_box.setStandardButtons(QMessageBox.Ok)
+            message_box.exec_()
+            return
+
+        components.sort(key=len, reverse=True)
+        subgraphs = [graph_w_pos.G.subgraph(component.union(split)) for component in components]
+        new_graph = nx.compose(subgraphs[0], nx.relabel_nodes(subgraphs[1], {u: v, v: u}, copy=True))
+        sub_expr.items[i] = GraphWithPos(new_graph, graph_w_pos.pos), multiplicity
+
+        print(f"{list(nx.generate_edgelist(graph_w_pos.G, data=False))=}")
+        print(f"{split=}")
+        print(f"{components=}")
+        print(f"{[list(nx.generate_edgelist(s, data=False)) for s in subgraphs]=}")
+        print(f"{list(nx.generate_edgelist(new_graph, data=False))=}")
+
+        self.append_derived_row(new_graph_expr, "Whitney")
+        self.deselect_all_except(index_tuple)
+
     def deselect_all_except(self, index_tuple):
         for widget in self.graph_widgets():
             if widget.index_tuple != index_tuple:
@@ -1472,6 +1525,11 @@ class GraphWidget(QWidget):
         if not self.row.can_clique_join(self.index_tuple):  # this operation doesn't change selection, no check req'd
             clique_join_action.setEnabled(False)
 
+        whitney_flip_action = context_menu.addAction("Whitney Flip")
+        whitney_flip_action.triggered.connect(self.option_whitney_flip)
+        if not self.row.selecting_allowed() or not self.row.can_whitney_flip(self.index_tuple):
+            whitney_flip_action.setEnabled(False)
+
         context_menu.addSeparator()
 
         merge_isomorphic_action = context_menu.addAction("Collect Isomorphic")
@@ -1591,6 +1649,9 @@ class GraphWidget(QWidget):
     def option_clique_join(self):
         self.row.do_clique_join(self.index_tuple)
 
+    def option_whitney_flip(self):
+        self.row.do_whitney_flip(self.index_tuple)
+
     def option_merge_isomorphic(self):
         self.row.merge_isomorphic(self.index_tuple)
 
@@ -1613,6 +1674,7 @@ class GraphWidget(QWidget):
 
     def option_test(self):
         print(self.index_tuple)
+        print(list(nx.generate_edgelist(self.graph_with_pos.G, data=False)))
 
 
 class MainWindow(QMainWindow):
