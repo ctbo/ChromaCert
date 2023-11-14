@@ -121,8 +121,11 @@ class RowLabel(QLabel):
         copy_action = context_menu.addAction("Append as new Row")
         copy_action.triggered.connect(self.on_copy)
 
-        latex_action = context_menu.addAction("Copy as LaTeX")
+        latex_action = context_menu.addAction("Copy as LaTeX (L)")
         latex_action.triggered.connect(self.on_latex)
+
+        latex_action = context_menu.addAction("Copy as LaTeX (R)")
+        latex_action.triggered.connect(self.on_latex_right)
 
         debug_action = context_menu.addAction("DEBUG Row")
         debug_action.triggered.connect(self.on_debug)
@@ -145,6 +148,10 @@ class RowLabel(QLabel):
     def on_latex(self):
         clipboard = QApplication.clipboard()
         clipboard.setText(self.row.derivation_to_latex_raw())
+
+    def on_latex_right(self):
+        clipboard = QApplication.clipboard()
+        clipboard.setText(self.row.derivation_to_latex_raw(True))
 
     def on_debug(self):
         print(f"({self.row.row_index+1}): {self.row.graph_expr}")
@@ -1227,10 +1234,11 @@ class Row:
         self.main_window.add_row(new_row)
         self.unhighlight_all()
 
-    def derivation_to_latex_raw(self, is_final=True):
+    def derivation_to_latex_raw(self, right=False, is_final=True):
         """
         Return the derivation of the current row in LaTeX, following back the chain of `parent_row`s until the
         start.
+        :param right: True to put explanation on the right side of the equation
         :param is_final: True if this is the last equation in the derivation
         :return: If is_final == True, a string with the complete LaTeX derivation.
             If is_final == False, a pair (result, carry) where result is the result so far and carry is a string
@@ -1255,10 +1263,13 @@ class Row:
 """
             carry = self.graph_expr.to_latex_raw() + "\n"
         else:
-            result, carry = self.parent_row.derivation_to_latex_raw(is_final=False)
+            result, carry = self.parent_row.derivation_to_latex_raw(right, is_final=False)
             result += r"% \end{alignat*}\begin{alignat*}{2} % uncomment to break here" + "\n"
             result += f"%%%%% ({self.row_index+1}):\n"
-            result += f"{self.latex_explanation}\\colon&& {carry} &= {self.graph_expr.to_latex_raw()}  \\\\\n"
+            if right:
+                result += f"{carry} &= {self.graph_expr.to_latex_raw()} &&\quad({self.latex_explanation})  \\\\\n"
+            else:
+                result += f"{self.latex_explanation}\\colon&& {carry} &= {self.graph_expr.to_latex_raw()}  \\\\\n"
             carry = ""
         if is_final:
             result += carry
