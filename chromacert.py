@@ -1013,12 +1013,6 @@ class Row:
         new_graph = nx.compose(subgraphs[0], nx.relabel_nodes(subgraphs[1], {u: v, v: u}, copy=True))
         sub_expr.items[i] = GraphWithPos(new_graph, graph_w_pos.pos), multiplicity
 
-        print(f"{list(nx.generate_edgelist(graph_w_pos.G, data=False))=}")
-        print(f"{split=}")
-        print(f"{components=}")
-        print(f"{[list(nx.generate_edgelist(s, data=False)) for s in subgraphs]=}")
-        print(f"{list(nx.generate_edgelist(new_graph, data=False))=}")
-
         self.append_derived_row(new_graph_expr, "Whitney")
         self.deselect_all_except(index_tuple)
 
@@ -1325,7 +1319,7 @@ class Row:
             result += r"% \end{alignat*}\begin{alignat*}{2} % uncomment to break here" + "\n"
             result += f"%%%%% ({self.row_index+1}):\n"
             if right:
-                result += f"{carry} &= {self.graph_expr.to_latex_raw()} &&\quad({self.latex_explanation})  \\\\\n"
+                result += f"{carry} &= {self.graph_expr.to_latex_raw()} &&\\quad({self.latex_explanation})  \\\\\n"
             else:
                 result += f"{self.latex_explanation}\\colon&& {carry} &= {self.graph_expr.to_latex_raw()}  \\\\\n"
             carry = ""
