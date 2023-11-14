@@ -256,12 +256,17 @@ class GraphWithPos:
     def __init__(self, graph=None, pos=None, from_dict=None):
         if from_dict is None:
             assert graph is not None
-            self.G = nx.convert_node_labels_to_integers(graph)  # clean node names (needed, e.g., for grid graphs)
+            # clean node names (needed, e.g., for grid graphs)
+            self.G = nx.convert_node_labels_to_integers(graph, label_attribute='old_label')
             self.graph_hash = GraphHash(graph)
             if pos is None:
                 self.pos = layout_with_scaffold(self.G)
             else:
-                self.pos = pos.copy()
+                # Create a mapping from old labels to new integer labels
+                mapping = {self.G.nodes[node]['old_label']: node for node in self.G.nodes()}
+                # Update pos dictionary based on the mapping
+                self.pos = {mapping[old_label]: position for old_label, position in pos.items()}
+
             self.selected_nodes = set()
             self.normalize_pos()
         else:
