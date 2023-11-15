@@ -262,10 +262,8 @@ class GraphWithPos:
             if pos is None:
                 self.pos = layout_with_scaffold(self.G)
             else:
-                # Create a mapping from old labels to new integer labels
-                mapping = {self.G.nodes[node]['old_label']: node for node in self.G.nodes()}
-                # Update pos dictionary based on the mapping
-                self.pos = {mapping[old_label]: position for old_label, position in pos.items()}
+                # translate pos dict to new node labels
+                self.pos = {node: pos[self.G.nodes[node]['old_label']] for node in self.G.nodes}
 
             self.selected_nodes = set()
             self.normalize_pos()
