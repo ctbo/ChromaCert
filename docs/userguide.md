@@ -1,6 +1,9 @@
 # ChromaCert – Certificates for Chromatic Equivalence
 
-(c) 2023 by Harald Bögeholz, provided under an MIT license
+(c) 2023 by Harald Bögeholz
+
+This software provided under an MIT license. See the
+file [LICENSE](../LICENSE) for details.
 
 **Disclaimer:** This software is a specialised tool for mathematicians
 working on chromatic polynomials of graphs. As such, it is not aiming for
@@ -41,6 +44,8 @@ software currently doesn't remember the current document's name and also
 **File/New** or **File/Open ...** the new content will immediately replace
 the current content.
 
+The file extension used by this software is ".chroma".
+
 ## Graph Editing
 
 After creating a new graph using the **New Graph** menu, some primitive
@@ -49,8 +54,8 @@ clicking and choose **Create Vertex/Toogle Edge/Delete Vertices** as needed
 from the context menu of the graph.
 
 **Note:** Editing is only allowed for newly created graphs in a row by
-themselves. If a row is derived from a previous row, editing is disabled (
-indicated by a darker grey background of the row).
+themselves. If a row is derived from a previous row, editing is disabled
+(indicated by a darker grey background of the row).
 
 ## Graph Layout
 
@@ -65,7 +70,9 @@ their layout to match the current one.
 ## Transformations
 
 The following transformations express the chromatic polynomial of one or
-more graphs in terms of the chromatic polynomial(s) of other graph(s).
+more graphs in terms of the chromatic polynomial(s) of other graph(s). This
+is where the actual math comes in; see the [References](#references) at the
+end of this document
 
 ### Addition-Identification
 
@@ -86,9 +93,9 @@ For a connected graph, select a clique and choose **Separate at Clique**
 from the context menu of the graph. The clique has to be separating, i.e.
 after removing the clique the graph must have more than one connected
 component. Will create one graph per connected component of the separated
-graph, divided by the clique. **Edge case: The zero-clique.** If the 
-graph is not connected and no vertices are selected, the graph is split
-into its connected components.
+graph, divided by the clique. **Edge case: The zero-clique.** If the graph
+is not connected and no vertices are selected, the graph is split into its
+connected components.
 
 ### Glue at Clique
 
@@ -147,7 +154,7 @@ itself. You can either
 
 or
 
-* right-click any graph and select **Copy as new Row** from the context 
+* right-click any graph and select **Copy as new Row** from the context
   menu.
 
 In both cases, the new graph will be editable to suit your needs. Let's
@@ -166,7 +173,7 @@ In order to insert neutral terms in the desired place or to control
 application of the distributive law, you sometimes need to add extra
 brackets.
 
-* Right-Click on a graph and choose **Add Brackets** to add an extra pair
+* Right-click on a graph and choose **Add Brackets** to add an extra pair
   of brackets around a single graph.
 
 * If you want to add brackets around a sub-expression within a sum or
