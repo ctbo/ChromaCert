@@ -225,7 +225,10 @@ class OpLabel(QLabel):
                 flip_action.setEnabled(False)  # can't flip at a leading minus or factor
 
             bracket_submenu = context_menu.addMenu("Add Brackets")
-            self.row.populate_bracket_menu(bracket_submenu, self.index_tuple)
+            if self.row.selecting_allowed():
+                self.row.populate_bracket_menu(bracket_submenu, self.index_tuple)
+            else:
+                bracket_submenu.setEnabled(False)
 
             union_action = context_menu.addAction("Disjoint Union")
             union_action.triggered.connect(self.on_union)
@@ -1536,6 +1539,9 @@ class GraphWidget(QWidget):
 
         add_brackets_action = context_menu.addAction("Add Brackets")
         add_brackets_action.triggered.connect(self.option_add_brackets)
+        if not self.row.selecting_allowed():
+            add_brackets_action.setEnabled(False)
+
         insert_neutral_submenu = context_menu.addMenu("Insert Neutral")
         self.row.populate_insert_neutral_menu(insert_neutral_submenu, self.index_tuple)
 
