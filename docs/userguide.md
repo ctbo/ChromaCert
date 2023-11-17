@@ -27,14 +27,15 @@ used to create a new row, it is no longer editable (except for graph
 layouts) in order to enforce the correctness of the certificate. This is
 indicated by a dark grey background. If you want to try a different
 operation on a dark grey row, right-click on the row label on the left and
-choose **Append as new Row**. This will create a new row that allows
-performing an operation (as indicated by the lighter grey background).
+choose **Append as new Row**. This action creates an editable row,
+indicated by a lighter grey background, where you can perform additional
+operations.
 
-The software currently does not allow deleting anything. If you make a
-mistake or change your mind, just use **Append as new Row** to start a new
-chain of operations. When exporting a certificate to
-LaTeX ([see below](#exporting-to-latex)), only the rows that are actually
-part of it will be included.
+The software currently does not support deleting rows. If you encounter an
+error or wish to alter your approach, simply use **Append as new Row** to
+initiate a new sequence of operations. When exporting a certificate to
+LaTeX ([see below](#exporting-to-latex)), only the relevant rows forming
+part of the certificate will be included.
 
 ## Loading and Saving
 
@@ -48,20 +49,20 @@ The file extension used by this software is ".chroma".
 
 ## Graph Editing
 
-After creating a new graph using the **New Graph** menu, some primitive
-graph editing facilities become available. Select/deselect vertices by
-clicking and choose **Create Vertex/Toogle Edge/Delete Vertices** as needed
-from the context menu of the graph.
+Upon creating a new graph via the **New Graph** menu, basic graph editing
+tools are available. You can select or deselect vertices by clicking on
+them. The context menu of the graph offers the options **Create Vertex**
+, **Toggle Edge**, and **Delete Vertices**.
 
-**Note:** Editing is only allowed for newly created graphs in a row by
-themselves. If a row is derived from a previous row, editing is disabled
-(indicated by a darker grey background of the row).
+**Note:** Editing is permitted only for newly created graphs that are in a
+row by themselves. Editing is disabled for rows derived from previous rows,
+as indicated by a darker grey background.
 
 ## Graph Layout
 
-The layout of a graph can be changed at any time, even when editing or
-selecting has been disabled. Drag vertices manually or choose one of the
-layout options from the context menu of the graph.
+You can modify the layout of a graph at any time, regardless of the editing
+or selection status. Vertices can be moved manually, or you can select from
+various layout options available in the context menu of the graph.
 
 The option **Broadcast Layout to Isomorphic** will find all graphs within
 the same row that are isomorphic to the graph you clicked on and change
@@ -99,18 +100,21 @@ connected components.
 
 ### Glue at Clique
 
-In exactly two graphs contained within the same product, select a clique of
-the same size and choose **Glue at Clique** from the context menu of a
-graph. The two graphs are glued at the selected cliques, *matching the
-vertices by their vertical position*. **Note:** This function is only
-available if exactly two graphs in the whole row have selected vertices.
+Select a clique of the same size in two different graphs within the same
+product. Then choose **Glue at Clique** from the graph's context menu. This
+function merges the two graphs at the selected cliques, *matching the
+vertices based on their vertical position*.
+
+**Note:** This function is available only if exactly two graphs in the
+entire row have selected vertices.
 
 ### Whitney Flip
 
-In a connected graph, select exactly two vertices such that removing those
-vertices separates the graph into exactly two connected components. Select
-**Whitney Flip** from the context menu of the graph to cut the graph at the
-two selected vertices and glue it back together with one piece flipped.
+In a connected graph, select two vertices whose removal results in the
+graph splitting into exactly two connected components. Choose **Whitney
+Flip** from the graph's context menu to execute the operation, which
+involves cutting the graph at the selected vertices and reassembling it
+with one segment flipped.
 
 ### Disjoint Union
 
@@ -120,21 +124,21 @@ disjoint union as a single graph.
 
 ## Algebraic manipulations
 
-This software is designed for manually manipulating expressions; it
-performs hardly any automatic simplifications.
+This software is designed for manually manipulating expressions and
+performs minimal automatic simplifications.
 
-Every expression is either a sum or a product of sub-expressions or graphs
-where sums are nested inside products inside sums and so on. Normally, only
-necessary parentheses are displayed. Select
+Each expression is either a sum or a product of sub-expressions or graphs
+where sums are nested inside products inside sums and so forth. By default,
+only necessary parentheses are shown. Select
 **View/Full Expression Structure** from the main menu to display the full
-structure with round parentheses around sums and square brackets around
-products. This can be necessary in order to be able to access the context
-menu of an otherwise invisible open bracket.
+structure. Round parentheses are used around sums and square brackets are
+used around products. This feature is particularly useful for accessing the
+context menu of an otherwise invisible open bracket.
 
 ### Collecting and splitting terms
 
-To combine multiple isomorphic graphs within the same sum or product into
-one summand/factor, choose **Collect Isomorphic** from the context menu.
+To consolidate multiple isomorphic graphs within the same sum or product
+into a single term, choose **Collect Isomorphic** from the context menu.
 The opposite operation is called **Split Term**. It will split off one copy
 of the graph as a separate summand or factor, depending on context.
 
@@ -146,9 +150,9 @@ It will swap the summands/factors immediately surrounding the operator.
 ### Inserting neutral expressions
 
 It can sometimes be useful to introduce a helper graph G into an
-expression, either as a zero sum (+ G – G) or as a product of 1 (× G / G).
-In order to do this, you first have to prepare the graph G on a row by
-itself. You can either
+expression. This can be done as a zero sum (+ G – G) or as a neutral
+product (× G / G). To prepare the graph G, first place it on a separate
+row. You can either
 
 * select a graph from the **New Graph** main menu
 
@@ -169,9 +173,8 @@ expression will be inserted *before* the item you clicked on.
 
 ### Adding and removing brackets
 
-In order to insert neutral terms in the desired place or to control
-application of the distributive law, you sometimes need to add extra
-brackets.
+To insert neutral terms accurately or to control the application of the
+distributive law, you may need to add extra brackets to your expressions.
 
 * Right-click on a graph and choose **Add Brackets** to add an extra pair
   of brackets around a single graph.
@@ -186,17 +189,17 @@ ChromaCert will automatically turn on the **View/Full Expression
 Structure** option to display newly inserted brackets that would otherwise
 be invisible.
 
-When you are done with algebraic manipulations, right-click on the row
-label and select **Simplify Brackets** to remove any unnecessary
-brackets/nesting. You may also want to de-select **View/Full Expression
-Structure** in the main menu.
+Once you have completed your algebraic manipulations, you can simplify the
+expression by removing any unnecessary brackets. To do this, right-click on
+the row label and select **Simplify Brackets**. It may also be helpful to
+deselect the **View/Full Expression Structure** option in the main menu to
+return to the default view.
 
 ### Applying the distributive law
 
 If you right-click a graph that is a factor in a product within a sum, the
 context menu item **Factor Out** will become available. The clicked graph
-will be factored out of the sum, making any necessary adjustments to the
-other summands.
+will be factored out of the sum, adjusting the other summands as necessary.
 
 If you right-click a graph that is a factor in a product and that product
 also has a sum to the right of the selected factor, the context menu item
@@ -207,14 +210,14 @@ distributed over the next sum encountered to the right.
 
 To prepare a certificate for publication, right-click on the row label of
 the *last row* and choose one of the two **Copy as LaTeX** options.
-Option (L) places the explanation in the left margin whereas option (R)
-places it to the right of the equations. The certificate is copied to the
-clipboard, ready for inserting it into your favourite LaTeX editor.
+Option **(L)** places the explanation in the left margin whereas option
+**(R)** places it to the right of the equations. The certificate is copied
+to the clipboard, ready for inserting it into your favourite LaTeX editor.
 
 Note: All the rows in this software form a directed acyclic graph with each
 row having at most one parent. The LaTeX export follows the chain of
 parents to the beginning and then generates the derivation of the current
-row. That's why the ability to delete things has not been a priority in
+row. That's why the ability to delete rows has not been a priority in
 developing this software — the LaTeX export just ignores superfluous rows.
 
 Acknowledging the use of this software in any publications would be
