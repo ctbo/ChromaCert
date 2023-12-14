@@ -10,10 +10,15 @@ file [LICENSE](LICENSE) for details.
 * Download and install the latest Python 3 from https://python.org
   (ChromaCert was developed using Python 3.11 under macOS)
 * `pip3 install matplotlib numpy sympy scipy networkx pyqt5`
+* Under Windows, it may be required to install the [Microsoft C/C++ 
+  runtime libraries](https://learn.microsoft.com/en-US/cpp/windows/latest-supported-vc-redist?view=msvc-170).
+  (Do that if you get the error `ImportError: DLL load failed while 
+  importing _cext` upon program start.)
 
 ## Running the program
 
-`python3 chromacert.py`
+`python3 chromacert.py` or `python chromacert.py`, depending on your 
+system. 
 
 ## Documentation
 
